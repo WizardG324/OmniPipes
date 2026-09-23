@@ -19,6 +19,13 @@ sourceSets.main.resources {
 }
 
 repositories {
+    maven {
+        name = "Curse Maven"
+        url = uri("https://cursemaven.com")
+        content {
+            includeGroup("curse.maven")
+        }
+    }
 }
 
 base {
@@ -33,6 +40,7 @@ neoForge {
     runs {
         client {
             client()
+            jvmArgument '-Xmx4G'
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
@@ -71,6 +79,10 @@ configurations {
 }
 
 dependencies {
+    //JEI
+    implementation("curse.maven:jei-238222:${jei_file_id}")
+    //Observable
+    implementation("curse.maven:observable-remake-1639360:${observable_file_id}")
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {

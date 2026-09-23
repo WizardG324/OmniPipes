@@ -1,0 +1,221 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "aiop:block/pipe_core_dyed"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_dyed",
+        "x": 90
+      },
+      "when": {
+        "down": "pipe"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_insert_dyed",
+        "x": 90
+      },
+      "when": {
+        "down": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_extract_dyed",
+        "x": 90
+      },
+      "when": {
+        "down": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_both_dyed",
+        "x": 90
+      },
+      "when": {
+        "down": "both"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_dyed",
+        "x": 270
+      },
+      "when": {
+        "up": "pipe"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_insert_dyed",
+        "x": 270
+      },
+      "when": {
+        "up": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_extract_dyed",
+        "x": 270
+      },
+      "when": {
+        "up": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_both_dyed",
+        "x": 270
+      },
+      "when": {
+        "up": "both"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_dyed"
+      },
+      "when": {
+        "north": "pipe"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_insert_dyed"
+      },
+      "when": {
+        "north": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_extract_dyed"
+      },
+      "when": {
+        "north": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_both_dyed"
+      },
+      "when": {
+        "north": "both"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_dyed",
+        "y": 180
+      },
+      "when": {
+        "south": "pipe"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_insert_dyed",
+        "y": 180
+      },
+      "when": {
+        "south": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_extract_dyed",
+        "y": 180
+      },
+      "when": {
+        "south": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_both_dyed",
+        "y": 180
+      },
+      "when": {
+        "south": "both"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_dyed",
+        "y": 270
+      },
+      "when": {
+        "west": "pipe"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_insert_dyed",
+        "y": 270
+      },
+      "when": {
+        "west": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_extract_dyed",
+        "y": 270
+      },
+      "when": {
+        "west": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_both_dyed",
+        "y": 270
+      },
+      "when": {
+        "west": "both"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_dyed",
+        "y": 90
+      },
+      "when": {
+        "east": "pipe"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_insert_dyed",
+        "y": 90
+      },
+      "when": {
+        "east": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_extract_dyed",
+        "y": 90
+      },
+      "when": {
+        "east": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "aiop:block/pipe_arm_both_dyed",
+        "y": 90
+      },
+      "when": {
+        "east": "both"
+      }
+    }
+  ]
+}

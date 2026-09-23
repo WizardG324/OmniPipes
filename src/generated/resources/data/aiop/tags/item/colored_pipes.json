@@ -1,0 +1,20 @@
+{
+  "values": [
+    "aiop:white_pipe",
+    "aiop:orange_pipe",
+    "aiop:magenta_pipe",
+    "aiop:light_blue_pipe",
+    "aiop:yellow_pipe",
+    "aiop:lime_pipe",
+    "aiop:pink_pipe",
+    "aiop:gray_pipe",
+    "aiop:light_gray_pipe",
+    "aiop:cyan_pipe",
+    "aiop:purple_pipe",
+    "aiop:blue_pipe",
+    "aiop:brown_pipe",
+    "aiop:green_pipe",
+    "aiop:red_pipe",
+    "aiop:black_pipe"
+  ]
+}

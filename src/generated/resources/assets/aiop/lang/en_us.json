@@ -1,0 +1,20 @@
+{
+  "block.aiop.black_pipe": "Black Pipe",
+  "block.aiop.blue_pipe": "Blue Pipe",
+  "block.aiop.brown_pipe": "Brown Pipe",
+  "block.aiop.cyan_pipe": "Cyan Pipe",
+  "block.aiop.gray_pipe": "Gray Pipe",
+  "block.aiop.green_pipe": "Green Pipe",
+  "block.aiop.light_blue_pipe": "Light Blue Pipe",
+  "block.aiop.light_gray_pipe": "Light Gray Pipe",
+  "block.aiop.lime_pipe": "Lime Pipe",
+  "block.aiop.magenta_pipe": "Magenta Pipe",
+  "block.aiop.orange_pipe": "Orange Pipe",
+  "block.aiop.pink_pipe": "Pink Pipe",
+  "block.aiop.pipe": "Pipe",
+  "block.aiop.purple_pipe": "Purple Pipe",
+  "block.aiop.red_pipe": "Red Pipe",
+  "block.aiop.white_pipe": "White Pipe",
+  "block.aiop.yellow_pipe": "Yellow Pipe",
+  "itemGroup.aiop": "All in One Pipe"
+}

@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "redstone",
+  "group": "aiop_dye",
+  "ingredients": [
+    "#aiop:pipes",
+    "#aiop:pipes",
+    "#aiop:pipes",
+    "#aiop:pipes",
+    "#aiop:pipes",
+    "#aiop:pipes",
+    "#aiop:pipes",
+    "#aiop:pipes",
+    "#c:dyes/magenta"
+  ],
+  "result": {
+    "count": 8,
+    "id": "aiop:magenta_pipe"
+  }
+}

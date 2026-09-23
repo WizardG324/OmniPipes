@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "group": "aiop",
+  "key": {
+    "B": "#c:storage_blocks/redstone",
+    "D": "#c:dusts/redstone",
+    "I": "#c:ingots/iron",
+    "X": "#c:storage_blocks/iron"
+  },
+  "pattern": [
+    "IDI",
+    "BXB",
+    "IDI"
+  ],
+  "result": {
+    "count": 16,
+    "id": "aiop:pipe"
+  }
+}
