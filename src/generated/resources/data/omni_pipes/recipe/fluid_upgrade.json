@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "omni_pipes_upgrade",
+  "key": {
+    "B": "minecraft:bucket",
+    "I": "#c:ingots/iron"
+  },
+  "pattern": [
+    "III",
+    "IBI",
+    "III"
+  ],
+  "result": {
+    "id": "omni_pipes:fluid_upgrade"
+  }
+}

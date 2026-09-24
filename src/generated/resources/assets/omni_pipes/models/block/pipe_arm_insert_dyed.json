@@ -1,0 +1,174 @@
+{
+  "elements": [
+    {
+      "faces": {
+        "down": {
+          "texture": "#connector",
+          "uv": [
+            0.0,
+            0.0,
+            10.0,
+            2.0
+          ]
+        },
+        "east": {
+          "texture": "#connector",
+          "uv": [
+            0.0,
+            0.0,
+            2.0,
+            10.0
+          ]
+        },
+        "north": {
+          "cullface": "north",
+          "texture": "#connector"
+        },
+        "south": {
+          "texture": "#connector"
+        },
+        "up": {
+          "texture": "#connector",
+          "uv": [
+            0.0,
+            0.0,
+            10.0,
+            2.0
+          ]
+        },
+        "west": {
+          "texture": "#connector",
+          "uv": [
+            0.0,
+            0.0,
+            2.0,
+            10.0
+          ]
+        }
+      },
+      "from": [
+        3,
+        3,
+        0
+      ],
+      "to": [
+        13,
+        13,
+        2
+      ]
+    },
+    {
+      "faces": {
+        "down": {
+          "texture": "#port",
+          "uv": [
+            4.0,
+            0.0,
+            10.0,
+            3.0
+          ]
+        },
+        "east": {
+          "texture": "#port",
+          "uv": [
+            0.0,
+            0.0,
+            3.0,
+            6.0
+          ]
+        },
+        "south": {
+          "texture": "#port"
+        },
+        "up": {
+          "texture": "#port",
+          "uv": [
+            4.0,
+            3.0,
+            10.0,
+            0.0
+          ]
+        },
+        "west": {
+          "texture": "#port",
+          "uv": [
+            3.0,
+            0.0,
+            0.0,
+            6.0
+          ]
+        }
+      },
+      "from": [
+        5,
+        5,
+        2
+      ],
+      "to": [
+        11,
+        11,
+        5
+      ]
+    },
+    {
+      "faces": {
+        "down": {
+          "texture": "#cable",
+          "tintindex": 0,
+          "uv": [
+            6.0,
+            0.0,
+            10.0,
+            3.0
+          ]
+        },
+        "east": {
+          "texture": "#cable",
+          "tintindex": 0,
+          "uv": [
+            0.0,
+            6.0,
+            3.0,
+            10.0
+          ]
+        },
+        "up": {
+          "texture": "#cable",
+          "tintindex": 0,
+          "uv": [
+            6.0,
+            0.0,
+            10.0,
+            3.0
+          ]
+        },
+        "west": {
+          "texture": "#cable",
+          "tintindex": 0,
+          "uv": [
+            0.0,
+            6.0,
+            3.0,
+            10.0
+          ]
+        }
+      },
+      "from": [
+        6,
+        6,
+        3
+      ],
+      "to": [
+        10,
+        10,
+        6
+      ]
+    }
+  ],
+  "textures": {
+    "cable": "omni_pipes:block/cable_dyed",
+    "connector": "omni_pipes:block/connector",
+    "particle": "omni_pipes:block/cable_dyed",
+    "port": "omni_pipes:block/pipe_insert"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "omni_pipes_upgrade",
+  "key": {
+    "I": "#c:ingots/iron",
+    "R": "#c:storage_blocks/redstone"
+  },
+  "pattern": [
+    "III",
+    "IRI",
+    "III"
+  ],
+  "result": {
+    "id": "omni_pipes:energy_upgrade"
+  }
+}

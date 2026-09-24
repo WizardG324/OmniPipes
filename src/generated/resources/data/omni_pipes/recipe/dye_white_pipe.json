@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "redstone",
+  "group": "omni_pipes_dye",
+  "ingredients": [
+    "#omni_pipes:pipes",
+    "#omni_pipes:pipes",
+    "#omni_pipes:pipes",
+    "#omni_pipes:pipes",
+    "#omni_pipes:pipes",
+    "#omni_pipes:pipes",
+    "#omni_pipes:pipes",
+    "#omni_pipes:pipes",
+    "#c:dyes/white"
+  ],
+  "result": {
+    "count": 8,
+    "id": "omni_pipes:white_pipe"
+  }
+}

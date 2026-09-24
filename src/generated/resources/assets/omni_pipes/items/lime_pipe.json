@@ -1,0 +1,16 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "omni_pipes:block/pipe_item_dyed",
+    "tints": [
+      {
+        "type": "minecraft:constant",
+        "value": -8337633
+      },
+      {
+        "type": "minecraft:constant",
+        "value": -6696373
+      }
+    ]
+  }
+}

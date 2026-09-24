@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_previous_tier": {
+      "conditions": {
+        "items": [
+          {
+            "items": "omni_pipes:tier_3_upgrade"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "omni_pipes:tier_4_upgrade"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_previous_tier"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "omni_pipes:tier_4_upgrade"
+    ]
+  }
+}

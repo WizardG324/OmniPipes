@@ -26,10 +26,12 @@ repositories {
             includeGroup("curse.maven")
         }
     }
+    maven { url = uri("https://maven.shedaniel.me") }
+    maven { url = uri("https://maven.architectury.dev") }
 }
 
 base {
-    archivesName = mod_id
+    archivesName = "${mod_id}-${minecraft_version}"
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
@@ -83,6 +85,12 @@ dependencies {
     implementation("curse.maven:jei-238222:${jei_file_id}")
     //Observable
     implementation("curse.maven:observable-remake-1639360:${observable_file_id}")
+    //Jade
+    implementation("curse.maven:jade-324717:${jade_file_id}")
+    //REI, compile only so the dev run keeps using JEI
+    compileOnly("me.shedaniel:RoughlyEnoughItems-api-neoforge:${rei_version}")
+    //Better Advanced Tooltips
+    implementation("curse.maven:better-advanced-tooltips-1637623:${better_advanced_tooltips_file_id}")
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {

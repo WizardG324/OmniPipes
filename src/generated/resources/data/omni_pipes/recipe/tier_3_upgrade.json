@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "omni_pipes_upgrade",
+  "key": {
+    "C": "#c:gems/diamond",
+    "R": "#c:storage_blocks/redstone",
+    "U": "omni_pipes:tier_2_upgrade"
+  },
+  "pattern": [
+    "CRC",
+    "RUR",
+    "CRC"
+  ],
+  "result": {
+    "id": "omni_pipes:tier_3_upgrade"
+  }
+}

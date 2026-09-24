@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "omni_pipes_upgrade",
+  "key": {
+    "C": "minecraft:netherite_scrap",
+    "G": "#c:ingots/gold",
+    "R": "#c:storage_blocks/redstone",
+    "U": "omni_pipes:tier_3_upgrade"
+  },
+  "pattern": [
+    "CGC",
+    "RUR",
+    "CGC"
+  ],
+  "result": {
+    "id": "omni_pipes:tier_4_upgrade"
+  }
+}

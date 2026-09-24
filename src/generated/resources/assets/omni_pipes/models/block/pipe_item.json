@@ -1,0 +1,187 @@
+{
+  "parent": "minecraft:block/block",
+  "elements": [
+    {
+      "faces": {
+        "down": {
+          "texture": "#cable",
+          "tintindex": 0,
+          "uv": [
+            6.0,
+            0.0,
+            10.0,
+            6.0
+          ]
+        },
+        "east": {
+          "texture": "#cable",
+          "tintindex": 0,
+          "uv": [
+            0.0,
+            6.0,
+            6.0,
+            10.0
+          ]
+        },
+        "north": {
+          "texture": "#cable",
+          "tintindex": 1,
+          "uv": [
+            12.0,
+            12.0,
+            16.0,
+            16.0
+          ]
+        },
+        "up": {
+          "texture": "#cable",
+          "tintindex": 0
+        },
+        "west": {
+          "texture": "#cable",
+          "tintindex": 0
+        }
+      },
+      "from": [
+        6,
+        6,
+        0
+      ],
+      "to": [
+        10,
+        10,
+        6
+      ]
+    },
+    {
+      "faces": {
+        "down": {
+          "texture": "#cable",
+          "tintindex": 1,
+          "uv": [
+            12.0,
+            12.0,
+            16.0,
+            16.0
+          ]
+        },
+        "east": {
+          "texture": "#cable",
+          "tintindex": 1,
+          "uv": [
+            12.0,
+            12.0,
+            16.0,
+            16.0
+          ]
+        },
+        "north": {
+          "texture": "#cable",
+          "tintindex": 1,
+          "uv": [
+            12.0,
+            12.0,
+            16.0,
+            16.0
+          ]
+        },
+        "south": {
+          "texture": "#cable",
+          "tintindex": 1,
+          "uv": [
+            12.0,
+            12.0,
+            16.0,
+            16.0
+          ]
+        },
+        "up": {
+          "texture": "#cable",
+          "tintindex": 1,
+          "uv": [
+            12.0,
+            12.0,
+            16.0,
+            16.0
+          ]
+        },
+        "west": {
+          "texture": "#cable",
+          "tintindex": 1,
+          "uv": [
+            12.0,
+            12.0,
+            16.0,
+            16.0
+          ]
+        }
+      },
+      "from": [
+        6,
+        6,
+        6
+      ],
+      "to": [
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "faces": {
+        "down": {
+          "texture": "#cable",
+          "tintindex": 0
+        },
+        "east": {
+          "texture": "#cable",
+          "tintindex": 0
+        },
+        "south": {
+          "texture": "#cable",
+          "tintindex": 1,
+          "uv": [
+            12.0,
+            12.0,
+            16.0,
+            16.0
+          ]
+        },
+        "up": {
+          "texture": "#cable",
+          "tintindex": 0,
+          "uv": [
+            6.0,
+            0.0,
+            10.0,
+            6.0
+          ]
+        },
+        "west": {
+          "texture": "#cable",
+          "tintindex": 0,
+          "uv": [
+            0.0,
+            6.0,
+            6.0,
+            10.0
+          ]
+        }
+      },
+      "from": [
+        6,
+        6,
+        10
+      ],
+      "to": [
+        10,
+        10,
+        16
+      ]
+    }
+  ],
+  "textures": {
+    "cable": "omni_pipes:block/cable",
+    "particle": "omni_pipes:block/cable"
+  }
+}

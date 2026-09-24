@@ -1,0 +1,221 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_core"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm",
+        "x": 90
+      },
+      "when": {
+        "down": "pipe"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm_insert",
+        "x": 90
+      },
+      "when": {
+        "down": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm_extract",
+        "x": 90
+      },
+      "when": {
+        "down": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm_both",
+        "x": 90
+      },
+      "when": {
+        "down": "both"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm",
+        "x": 270
+      },
+      "when": {
+        "up": "pipe"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm_insert",
+        "x": 270
+      },
+      "when": {
+        "up": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm_extract",
+        "x": 270
+      },
+      "when": {
+        "up": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm_both",
+        "x": 270
+      },
+      "when": {
+        "up": "both"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm"
+      },
+      "when": {
+        "north": "pipe"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm_insert"
+      },
+      "when": {
+        "north": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm_extract"
+      },
+      "when": {
+        "north": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm_both"
+      },
+      "when": {
+        "north": "both"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm",
+        "y": 180
+      },
+      "when": {
+        "south": "pipe"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm_insert",
+        "y": 180
+      },
+      "when": {
+        "south": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm_extract",
+        "y": 180
+      },
+      "when": {
+        "south": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm_both",
+        "y": 180
+      },
+      "when": {
+        "south": "both"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm",
+        "y": 270
+      },
+      "when": {
+        "west": "pipe"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm_insert",
+        "y": 270
+      },
+      "when": {
+        "west": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm_extract",
+        "y": 270
+      },
+      "when": {
+        "west": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm_both",
+        "y": 270
+      },
+      "when": {
+        "west": "both"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm",
+        "y": 90
+      },
+      "when": {
+        "east": "pipe"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm_insert",
+        "y": 90
+      },
+      "when": {
+        "east": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm_extract",
+        "y": 90
+      },
+      "when": {
+        "east": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "omni_pipes:block/pipe_arm_both",
+        "y": 90
+      },
+      "when": {
+        "east": "both"
+      }
+    }
+  ]
+}

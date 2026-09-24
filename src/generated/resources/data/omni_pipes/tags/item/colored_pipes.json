@@ -1,0 +1,20 @@
+{
+  "values": [
+    "omni_pipes:white_pipe",
+    "omni_pipes:orange_pipe",
+    "omni_pipes:magenta_pipe",
+    "omni_pipes:light_blue_pipe",
+    "omni_pipes:yellow_pipe",
+    "omni_pipes:lime_pipe",
+    "omni_pipes:pink_pipe",
+    "omni_pipes:gray_pipe",
+    "omni_pipes:light_gray_pipe",
+    "omni_pipes:cyan_pipe",
+    "omni_pipes:purple_pipe",
+    "omni_pipes:blue_pipe",
+    "omni_pipes:brown_pipe",
+    "omni_pipes:green_pipe",
+    "omni_pipes:red_pipe",
+    "omni_pipes:black_pipe"
+  ]
+}

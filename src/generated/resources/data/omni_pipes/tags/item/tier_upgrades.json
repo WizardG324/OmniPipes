@@ -1,0 +1,9 @@
+{
+  "values": [
+    "omni_pipes:tier_1_upgrade",
+    "omni_pipes:tier_2_upgrade",
+    "omni_pipes:tier_3_upgrade",
+    "omni_pipes:tier_4_upgrade",
+    "omni_pipes:creative_upgrade"
+  ]
+}

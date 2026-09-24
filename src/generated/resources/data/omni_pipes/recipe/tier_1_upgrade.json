@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "omni_pipes_upgrade",
+  "key": {
+    "I": "#c:ingots/iron",
+    "P": "#omni_pipes:pipes",
+    "R": "#c:dusts/redstone"
+  },
+  "pattern": [
+    "IRI",
+    "RPR",
+    "IRI"
+  ],
+  "result": {
+    "id": "omni_pipes:tier_1_upgrade"
+  }
+}
