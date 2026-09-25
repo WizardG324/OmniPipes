@@ -11,6 +11,8 @@ displayName="${mod_name}" #mandatory
 
 authors="WizardG"
 
+logoFile="logo.png"
+
 description='''
 The one pipe solution to transferring just about anything.
 '''

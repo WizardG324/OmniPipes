@@ -11,12 +11,14 @@ This mod aims to add a one pipe solution to transferring just about anything.
 *   Inserting, Extracting, or both from any pipe connection
 *   Transfer Items, Fluids, Energy, or multiple types with upgrades (transfers items by default)
 *   Filtering on both insertion and extraction, with either Blacklist or Whitelist
+*   NBT/Component matching on both filtering modes
 *   Fluid filtering by putting a bucket, or a tank containing the fluid you wish to filter, into a filter slot
+*   A tag filter item, to allow filtering for any tag
+*   A tool capable of disabling and enabling connections, as well as copy & pasting settings
 *   Full Redstone control: Disabled/Low signal/High signal/Off
 *   Different distribution modes: Closest/Furthest/Round-Robin/Random
 *   Tier upgrades to improve extracting pipes: Tier 1-4 and a Creative Upgrade
 *   Resource upgrades to allow extracting multiple types from the same connection
-*   NBT/Component matching on both filtering modes
 *   Inserting and Extracting on 16 different colored channels
 *   16 different color variants of the default pipe
 *   The ability to keep a set amount stocked in a block, or cap how much is extracted at a time
@@ -28,6 +30,9 @@ This mod aims to add a one pipe solution to transferring just about anything.
 *   Jade (shows the mode, the channel colors, what's being transferred, and speed/amounts)
 *   JEI/EMI/REI (shows recipes in the mod's recipe browser plus dragging items and fluids to filters)
 *   Suggest different mods that handle their own resource, and I'll take a look
+
+## Known Issues
+*   Dragging items and fluids from REI into filters doesn't work on REI 26.1.819 (issue with REI)
 
 ## Version Support
 
