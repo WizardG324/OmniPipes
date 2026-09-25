@@ -5,6 +5,7 @@ import com.wizardg.omnipipes.block.ModBlocks;
 import com.wizardg.omnipipes.item.ModItems;
 import com.wizardg.omnipipes.util.ModTags;
 import net.minecraft.core.HolderLookup;
+import net.neoforged.neoforge.common.Tags;
 import net.minecraft.data.PackOutput;
 import net.neoforged.neoforge.common.data.ItemTagsProvider;
 
@@ -28,6 +29,7 @@ public class ModItemTagsProvider extends ItemTagsProvider {
 
         //Upgrades, which pipe upgrade slot accepts them
         ModItems.TIER_UPGRADES.forEach(tier -> tag(ModTags.Items.TIER_UPGRADES).add(tier.get()));
+        tag(Tags.Items.TOOLS_WRENCH).add(ModItems.PIPE_CONFIGURATOR.get());
         tag(ModTags.Items.TIER_UPGRADES).add(ModItems.CREATIVE_UPGRADE.get());
         tag(ModTags.Items.TYPE_UPGRADES)
                 .add(ModItems.FLUID_UPGRADE.get())

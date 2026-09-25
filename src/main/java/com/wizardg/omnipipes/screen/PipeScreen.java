@@ -5,7 +5,12 @@ import com.wizardg.omnipipes.block.custom.PipeBlock;
 import com.wizardg.omnipipes.block.entity.PipeBlockEntity;
 import com.wizardg.omnipipes.block.entity.PipeFilter;
 import com.wizardg.omnipipes.networking.SetFilterPayload;
+import com.wizardg.omnipipes.util.ModTags;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.tags.TagKey;
+import net.minecraft.util.Util;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
@@ -21,6 +26,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
@@ -157,14 +163,30 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     @Override
     protected void extractTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         super.extractTooltip(graphics, mouseX, mouseY);
-        if (menu.getCarried().isEmpty() && hoveredSlot != null && PipeMenu.isFilterSlot(hoveredSlot) && !hoveredSlot.hasItem())
+        if (!menu.getCarried().isEmpty() || hoveredSlot == null || hoveredSlot.hasItem()) return;
+        if (PipeMenu.isFilterSlot(hoveredSlot))
             graphics.setTooltipForNextFrame(font, Component.translatable("screen.omni_pipes.filter_slot.tooltip"), mouseX, mouseY);
+        TagKey<Item> accepts = PipeMenu.upgradeSlotAccepts(hoveredSlot);
+        if (accepts != null) {
+            String key = accepts == ModTags.Items.TIER_UPGRADES ? "screen.omni_pipes.slot.tier" : "screen.omni_pipes.slot.type";
+            graphics.setTooltipForNextFrame(font, List.of(Component.translatable(key).getVisualOrderText(),
+                    Component.translatable(key + ".tooltip").withStyle(ChatFormatting.GRAY).getVisualOrderText()), mouseX, mouseY);
+        }
     }
 
     // Filled filter slots show their stock amount like a stack count.
     @Override
     protected void extractSlot(GuiGraphicsExtractor graphics, Slot slot, int mouseX, int mouseY) {
         super.extractSlot(graphics, slot, mouseX, mouseY);
+        // Empty upgrade slots show a faded icon of what fits, cycling through every upgrade in the slot's tag.
+        TagKey<Item> accepts = PipeMenu.upgradeSlotAccepts(slot);
+        if (accepts != null && !slot.hasItem()) {
+            List<Item> fits = BuiltInRegistries.ITEM.get(accepts).map(set -> set.stream().map(Holder::value).toList()).orElse(List.of());
+            if (!fits.isEmpty()) {
+                graphics.item(new ItemStack(fits.get((int) (Util.getMillis() / 1000 % fits.size()))), slot.x, slot.y);
+                graphics.fill(slot.x, slot.y, slot.x + 16, slot.y + 16, 0xB08B8B8B);
+            }
+        }
         if (!PipeMenu.isFilterSlot(slot) || !slot.hasItem()) return;
         int amount = menu.amount(slot.getContainerSlot());
         if (amount <= 0) return;
@@ -191,6 +213,14 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     // Recipe viewer drag and drop (compat/jei, compat/rei): the filter slots, where they are, and dropping into one.
     public List<Slot> filterSlots() {
         return menu.slots.stream().filter(PipeMenu::isFilterSlot).toList();
+    }
+
+    // Parts drawn outside the main panel (upgrade strip, buttons on the left), so recipe viewers keep clear of them.
+    public List<Rect2i> extraAreas() {
+        List<Rect2i> areas = new ArrayList<>(List.of(new Rect2i(leftPos + PipeMenu.STRIP_X, topPos, STRIP_WIDTH, STRIP_HEIGHT)));
+        for (CycleButton button : buttons)
+            if (button.getX() < leftPos) areas.add(new Rect2i(button.getX(), button.getY(), button.getWidth(), button.getHeight()));
+        return areas;
     }
 
     public Rect2i slotArea(Slot slot) {

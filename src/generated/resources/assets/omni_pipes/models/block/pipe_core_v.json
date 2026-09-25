@@ -1,0 +1,32 @@
+{
+  "elements": [
+    {
+      "faces": {
+        "north": {
+          "texture": "#cable",
+          "tintindex": 0,
+          "uv": [
+            6.0,
+            0.0,
+            10.0,
+            4.0
+          ]
+        }
+      },
+      "from": [
+        6,
+        6,
+        6
+      ],
+      "to": [
+        10,
+        10,
+        10
+      ]
+    }
+  ],
+  "textures": {
+    "cable": "omni_pipes:block/cable",
+    "particle": "omni_pipes:block/cable"
+  }
+}

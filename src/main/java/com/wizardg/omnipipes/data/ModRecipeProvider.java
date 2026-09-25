@@ -93,6 +93,26 @@ public class ModRecipeProvider extends RecipeProvider {
                 .unlockedBy("has_iron_ingot", has(Items.IRON_INGOT))
                 .save(output);
 
+        //Pipe Configurator, a wrench with a redstone head
+        shaped(RecipeCategory.TOOLS, ModItems.PIPE_CONFIGURATOR.get())
+                .pattern("I I")
+                .pattern(" R ")
+                .pattern(" I ")
+                .define('I', Tags.Items.INGOTS_IRON)
+                .define('R', Tags.Items.DUSTS_REDSTONE)
+                .unlockedBy("has_pipe", has(ModTags.Items.PIPES))
+                .save(output);
+
+        //Tag Filter, paper ringed by 4 iron
+        shaped(RecipeCategory.MISC, ModItems.TAG_FILTER.get())
+                .pattern(" I ")
+                .pattern("IPI")
+                .pattern(" I ")
+                .define('I', Tags.Items.INGOTS_IRON)
+                .define('P', Items.PAPER)
+                .unlockedBy("has_iron_ingot", has(Items.IRON_INGOT))
+                .save(output);
+
         //Dyeing, 8 pipes of any color + dye
         ModBlocks.COLORED_PIPES.forEach((color, result) ->
             shapeless(RecipeCategory.REDSTONE, result.get(), 8)

@@ -9,6 +9,8 @@ public class ServerConfig {
     public static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
     public static final ModConfigSpec SPEC;
 
+    public static final ModConfigSpec.ConfigValue<Boolean> enablePipeOptimizations;
+    public static final ModConfigSpec.ConfigValue<Integer> retriesBeforePausing;
     public static final ModConfigSpec.ConfigValue<Integer> extractRecheckDelay;
     public static final Rates base;
     public static final List<Rates> upgradeTiers = new ArrayList<>(); // index 0 = tier 1
@@ -21,8 +23,16 @@ public class ServerConfig {
     static {
         BUILDER.comment("Pipe settings").push("Pipes");
 
+        enablePipeOptimizations = BUILDER
+                .comment("Pause pipes that keep failing to extract, instead of retrying at full speed.")
+                .define("enablePipeOptimizations", true);
+
+        retriesBeforePausing = BUILDER
+                .comment("How many failed extracts that can happen before pausing")
+                .defineInRange("retriesBeforePausing", 2, 0, 100);
+
         extractRecheckDelay = BUILDER
-                .comment("Ticks a pipe waits before trying again after an extract moves nothing.")
+                .comment("Ticks a pipe pauses for once it runs out of retries.")
                 .defineInRange("extractRecheckDelay", 50, 0, 1200);
 
         BUILDER.pop();
@@ -30,7 +40,7 @@ public class ServerConfig {
         BUILDER.comment("Pipe transfer settings, sub sections override these for each upgrade").push("settings");
         base = rates(40, 8, 2000, 4000);
 
-        // Might add a Tier 5 upgrade to keep up with end game.
+        // Might add higher tier upgrades to keep up with end game. {1, 128, 128_000, 464_000}, {1, 256, 256_000, 1_280_000}
         int[][] tierDefaults = {{30, 16, 5000, 12_000}, {15, 32, 16000, 36_000}, {5, 48, 32_000, 98_000}, {1, 64, 64_000, 232_000}};
         for (int tier = 1; tier <= tierDefaults.length; tier++) {
             int[] d = tierDefaults[tier - 1];

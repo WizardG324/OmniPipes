@@ -1,4 +1,4 @@
-Github page for the [Omni Pipes](https://www.curseforge.com/minecraft/mc-mods/omni-pipes/) mod
+GitHub page for the [Omni Pipes](https://www.curseforge.com/minecraft/mc-mods/omni-pipes/) mod
 
 --------------
 

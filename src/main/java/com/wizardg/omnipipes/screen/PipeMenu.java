@@ -68,8 +68,22 @@ public class PipeMenu extends AbstractContainerMenu {
 
     public PipeMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf extraData) {
         this(containerId, inventory, extraData.readBlockPos(), extraData.readEnum(Direction.class), null,
-                new SimpleContainerData(7), new SimpleContainerData(5 + GRID_COLS * GRID_ROWS), new SimpleContainer(6 * UPGRADE_SLOTS),
+                readSideData(extraData), new SimpleContainerData(5 + GRID_COLS * GRID_ROWS), new SimpleContainer(6 * UPGRADE_SLOTS),
                 new SimpleContainer(GRID_COLS * GRID_ROWS));
+    }
+
+    // Written when the menu opens so the screen starts with the real mode and settings instead of zeros for a tick.
+    public static void writeOpenData(RegistryFriendlyByteBuf buf, PipeBlockEntity be, Direction side) {
+        buf.writeBlockPos(be.getBlockPos());
+        buf.writeEnum(side);
+        ContainerData data = be.sideData(side);
+        for (int i = 0; i < data.getCount(); i++) buf.writeVarInt(data.get(i));
+    }
+
+    private static SimpleContainerData readSideData(RegistryFriendlyByteBuf buf) {
+        SimpleContainerData data = new SimpleContainerData(7);
+        for (int i = 0; i < data.getCount(); i++) data.set(i, buf.readVarInt());
+        return data;
     }
 
     public PipeMenu(int containerId, Inventory inventory, PipeBlockEntity be, Direction side) {
@@ -102,6 +116,11 @@ public class PipeMenu extends AbstractContainerMenu {
         for (int row = 0; row < GRID_ROWS; row++)
             for (int col = 0; col < GRID_COLS; col++)
                 addSlot(new GhostSlot(ghostContainer, row * GRID_COLS + col, GRID_X + col * 18, GRID_Y + row * 18));
+    }
+
+    // Which upgrades a slot of the upgrade strip takes, null for any other slot.
+    public static @Nullable TagKey<Item> upgradeSlotAccepts(Slot slot) {
+        return slot instanceof UpgradeSlot upgrade ? upgrade.accepts : null;
     }
 
     public static boolean isFilterSlot(Slot slot) {

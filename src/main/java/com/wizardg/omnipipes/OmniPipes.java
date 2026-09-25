@@ -7,11 +7,12 @@ import com.mojang.logging.LogUtils;
 
 import com.wizardg.omnipipes.block.ModBlockEntities;
 import com.wizardg.omnipipes.block.ModBlocks;
-import com.wizardg.omnipipes.block.custom.PipeBlock;
 import com.wizardg.omnipipes.gametest.ModGameTests;
 import com.wizardg.omnipipes.item.ModCreativeTab;
+import com.wizardg.omnipipes.item.ModDataComponents;
 import com.wizardg.omnipipes.item.ModItems;
 import com.wizardg.omnipipes.networking.SetFilterPayload;
+import com.wizardg.omnipipes.networking.SetTagFilterPayload;
 import com.wizardg.omnipipes.screen.ModMenuTypes;
 import com.wizardg.omnipipes.screen.PipeScreen;
 import net.minecraft.client.color.block.BlockTintSources;
@@ -36,11 +37,13 @@ public class OmniPipes {
         ModBlocks.BLOCKS.register(modEventBus);
         ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
         ModItems.ITEMS.register(modEventBus);
+        ModDataComponents.COMPONENTS.register(modEventBus);
         ModCreativeTab.CREATIVE_MODE_TABS.register(modEventBus);
         ModMenuTypes.MENUS.register(modEventBus);
         ModGameTests.TEST_FUNCTIONS.register(modEventBus);
         modEventBus.addListener(ModGameTests::registerTests);
         modEventBus.addListener(SetFilterPayload::register);
+        modEventBus.addListener(SetTagFilterPayload::register);
 
         modContainer.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);
     }
@@ -52,8 +55,7 @@ public class OmniPipes {
         @SubscribeEvent
         public static void registerBlockColors(RegisterColorHandlersEvent.BlockTintSources event) {
             ModBlocks.COLORED_PIPES.forEach((color, pipe) ->
-                    event.register(List.of(BlockTintSources.constant(color.getTextureDiffuseColor()),
-                            BlockTintSources.constant(PipeBlock.coreTint(color))), pipe.get()));
+                    event.register(List.of(BlockTintSources.constant(color.getTextureDiffuseColor())), pipe.get()));
         }
 
         @SubscribeEvent

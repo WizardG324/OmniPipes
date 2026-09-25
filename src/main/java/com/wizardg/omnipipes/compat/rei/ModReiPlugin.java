@@ -8,6 +8,7 @@ import me.shedaniel.rei.api.client.gui.drag.DraggableStackVisitor;
 import me.shedaniel.rei.api.client.gui.drag.DraggedAcceptorResult;
 import me.shedaniel.rei.api.client.gui.drag.DraggingContext;
 import me.shedaniel.rei.api.client.plugins.REIClientPlugin;
+import me.shedaniel.rei.api.client.registry.screen.ExclusionZones;
 import me.shedaniel.rei.api.client.registry.screen.ScreenRegistry;
 import me.shedaniel.rei.forge.REIPluginClient;
 import net.minecraft.client.gui.screens.Screen;
@@ -17,9 +18,15 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.stream.Stream;
 
-// Lets items and fluids be dragged from REI onto the pipe's filter slots.
+// Keeps REI clear of the pipe screen's side parts, and lets items and fluids be dragged onto its filter slots.
 @REIPluginClient
 public class ModReiPlugin implements REIClientPlugin {
+    @Override
+    public void registerExclusionZones(ExclusionZones zones) {
+        zones.register(PipeScreen.class, (PipeScreen screen) -> screen.extraAreas().stream()
+                .map(area -> new Rectangle(area.getX(), area.getY(), area.getWidth(), area.getHeight())).toList());
+    }
+
     @Override
     public void registerScreens(ScreenRegistry registry) {
         registry.registerDraggableStackVisitor(new DraggableStackVisitor<PipeScreen>() {

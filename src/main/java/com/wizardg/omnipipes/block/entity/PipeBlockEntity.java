@@ -7,6 +7,10 @@ import com.wizardg.omnipipes.item.ModItems;
 import com.wizardg.omnipipes.util.ModTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.level.storage.TagValueInput;
+import net.minecraft.world.level.storage.TagValueOutput;
 import net.minecraft.util.Util;
 import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
@@ -41,7 +45,11 @@ import java.util.Set;
 import static com.wizardg.omnipipes.block.custom.PipeBlock.SIDES;
 
 public class PipeBlockEntity extends BlockEntity {
-    private final long[] nextExtract = new long[6]; // game time per side, not saved since a reload just retries early
+    private final long[] nextExtract = new long[6]; // game time per side
+    // Sides switched off with the configurator (they never connect), holding what the side was so it can come back.
+    private final PipeBlock.Side[] disabledFrom = new PipeBlock.Side[6];
+    private final int[] failedExtracts = new int[6]; // in a row, pauses the side once past the retries
+    private int @Nullable [] loadedWait; // ticks each side still had to wait when saved, applied on the first tick
     private final RedstoneMode[] redstone = new RedstoneMode[6];
     private final Distribution[] distribution = new Distribution[6];
     private final int[] roundRobin = new int[6]; // next start target per side, not saved
@@ -166,6 +174,57 @@ public class PipeBlockEntity extends BlockEntity {
         int next = Math.clamp(getSpeed(dir) + ticks, fastest, Math.max(fastest, SLOWEST_SPEED));
         speed[dir.ordinal()] = next == fastest ? 0 : next;
         setChanged();
+    }
+
+    public boolean isDisabled(Direction dir) {
+        return disabledFrom[dir.ordinal()] != null;
+    }
+
+    public void disable(Direction dir, PipeBlock.Side was) {
+        disabledFrom[dir.ordinal()] = was;
+        setChanged();
+    }
+
+    // Returns what the side was before it got disabled.
+    public PipeBlock.@Nullable Side enable(Direction dir) {
+        PipeBlock.Side was = disabledFrom[dir.ordinal()];
+        disabledFrom[dir.ordinal()] = null;
+        setChanged();
+        return was;
+    }
+
+    // A connection's settings and both its filters, for the configurator to copy onto another connection.
+    public CompoundTag copySettings(Direction dir) {
+        int i = dir.ordinal();
+        TagValueOutput output = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, level.registryAccess());
+        output.putString("mode", getBlockState().getValue(SIDES.get(dir)).getSerializedName());
+        output.putInt("redstone", redstone[i].ordinal());
+        output.putInt("distribution", distribution[i].ordinal());
+        output.putInt("speed", speed[i]);
+        output.putInt("insert_channel", insertChannel[i]);
+        output.putInt("extract_channel", extractChannel[i]);
+        insertFilters[i].save(output.child("insert_filter"));
+        extractFilters[i].save(output.child("extract_filter"));
+        return output.buildResult();
+    }
+
+    // Only onto block connections, the mode is changed too.
+    public void pasteSettings(Direction dir, CompoundTag settings) {
+        int i = dir.ordinal();
+        ValueInput input = TagValueInput.create(ProblemReporter.DISCARDING, level.registryAccess(), settings);
+        redstone[i] = RedstoneMode.values()[Math.clamp(input.getIntOr("redstone", 0), 0, RedstoneMode.values().length - 1)];
+        distribution[i] = Distribution.values()[Math.clamp(input.getIntOr("distribution", 0), 0, Distribution.values().length - 1)];
+        speed[i] = Math.clamp(input.getIntOr("speed", 0), 0, SLOWEST_SPEED);
+        insertChannel[i] = Math.clamp(input.getIntOr("insert_channel", 0), 0, 15);
+        extractChannel[i] = Math.clamp(input.getIntOr("extract_channel", 0), 0, 15);
+        input.child("insert_filter").ifPresent(insertFilters[i]::load);
+        input.child("extract_filter").ifPresent(extractFilters[i]::load);
+        setChanged();
+        String mode = input.getStringOr("mode", "");
+        for (PipeBlock.Side side : PipeBlock.Side.values())
+            if (PipeBlock.isPort(side) && side.getSerializedName().equals(mode))
+                level.setBlockAndUpdate(worldPosition, getBlockState().setValue(SIDES.get(dir), side));
+        updateCanRun(getBlockState());
     }
 
     public int getInsertChannel(Direction dir) {
@@ -294,6 +353,10 @@ public class PipeBlockEntity extends BlockEntity {
         long time = level.getGameTime();
         if (time == be.lastTickTime) return;
         be.lastTickTime = time;
+        if (be.loadedWait != null) {
+            for (int i = 0; i < Math.min(be.loadedWait.length, 6); i++) be.nextExtract[i] = time + be.loadedWait[i];
+            be.loadedWait = null;
+        }
         if (state != be.canRunState) be.updateCanRun(state); // a side's mode changed
         List<Target> targets = null;
         for (Direction dir : Direction.values()) {
@@ -314,7 +377,9 @@ public class PipeBlockEntity extends BlockEntity {
                         (a, b, n, t) -> moveFiltered(a, b, extractFilter, t.filter, n, batches));
             if (be.movesType(dir, ModItems.ENERGY_UPGRADE.get()))
                 moved += push(level, Capabilities.Energy.BLOCK, src, side, dests, rates.energy, (a, b, n, t) -> EnergyHandlerUtil.move(a, b, n, null));
-            be.nextExtract[i] = time + (moved > 0 ? be.getSpeed(dir) : rates.recheck);
+            be.failedExtracts[i] = moved > 0 ? 0 : be.failedExtracts[i] + 1;
+            boolean pause = ServerConfig.enablePipeOptimizations.get() && be.failedExtracts[i] > ServerConfig.retriesBeforePausing.get();
+            be.nextExtract[i] = time + (pause ? rates.recheck : be.getSpeed(dir));
         }
     }
 
@@ -358,11 +423,12 @@ public class PipeBlockEntity extends BlockEntity {
         return moved;
     }
 
-    // How many of this resource the handler holds, counted the way the filter matches entries.
+    // How much the handler holds of everything that matches the same filter entry as this resource.
     private static <R extends RegisteredResource<?>> int count(ResourceHandler<R> handler, R resource, PipeFilter filter) {
+        PipeFilter.Entry entry = filter.match(resource);
         int total = 0;
         for (int i = 0; i < handler.size(); i++)
-            if (!handler.getResource(i).isEmpty() && filter.sameEntry(handler.getResource(i), resource)) total += handler.getAmountAsInt(i);
+            if (!handler.getResource(i).isEmpty() && filter.match(handler.getResource(i)) == entry) total += handler.getAmountAsInt(i);
         return total;
     }
 
@@ -397,6 +463,13 @@ public class PipeBlockEntity extends BlockEntity {
         output.putIntArray("redstone", Arrays.stream(redstone).mapToInt(Enum::ordinal).toArray());
         output.putIntArray("distribution", Arrays.stream(distribution).mapToInt(Enum::ordinal).toArray());
         output.putIntArray("speed", speed);
+        output.putIntArray("disabled_from", Arrays.stream(disabledFrom).mapToInt(side -> side == null ? -1 : side.ordinal()).toArray());
+        // Saved as ticks left, since game time keeps running while the chunk is unloaded. Without a level there's
+        // no clock to compare against, so no wait.
+        if (level != null) {
+            long now = level.getGameTime();
+            output.putIntArray("extract_wait", Arrays.stream(nextExtract).mapToInt(t -> (int) Math.clamp(t - now, 0, Integer.MAX_VALUE)).toArray());
+        }
         output.putIntArray("insert_channel", insertChannel);
         output.putIntArray("extract_channel", extractChannel);
         ContainerHelper.saveAllItems(output, upgrades.getItems());
@@ -413,6 +486,11 @@ public class PipeBlockEntity extends BlockEntity {
             for (int i = 0; i < Math.min(modes.length, 6); i++) redstone[i] = RedstoneMode.values()[modes[i]];
         });
         input.getIntArray("speed").ifPresent(s -> System.arraycopy(s, 0, speed, 0, Math.min(s.length, 6)));
+        loadedWait = input.getIntArray("extract_wait").orElse(null);
+        input.getIntArray("disabled_from").ifPresent(d -> {
+            for (int i = 0; i < Math.min(d.length, 6); i++)
+                disabledFrom[i] = d[i] >= 0 && d[i] < PipeBlock.Side.values().length ? PipeBlock.Side.values()[d[i]] : null;
+        });
         input.getIntArray("distribution").ifPresent(modes -> {
             for (int i = 0; i < Math.min(modes.length, 6); i++) distribution[i] = Distribution.values()[modes[i]];
         });

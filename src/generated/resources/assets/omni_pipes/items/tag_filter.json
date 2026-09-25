@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "omni_pipes:item/tag_filter"
+  }
+}

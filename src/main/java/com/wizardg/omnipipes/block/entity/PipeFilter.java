@@ -1,6 +1,12 @@
 package com.wizardg.omnipipes.block.entity;
 
+import com.wizardg.omnipipes.item.TagFilterItem;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.fluids.FluidType;
@@ -18,6 +24,7 @@ import java.util.Map;
 
 // Filter for one direction of a pipe side. Starts as an empty blacklist, so everything passes.
 // An entry that holds a fluid (a bucket, a tank) also matches that fluid, its amount then counts in buckets.
+// A Tag Filter entry matches every item and fluid in any of its tags.
 public class PipeFilter {
     public static final int MAX_ENTRIES = 256; // hidden cap so a runaway list can't bloat the save
     public static final int MAX_AMOUNT = 9999;
@@ -29,6 +36,8 @@ public class PipeFilter {
     private final List<Entry> entries = new ArrayList<>();
     private record Key(RegisteredResource<?> resource, Entry entry) {}
     private final Map<Object, List<Key>> byValue = new HashMap<>(); // item or fluid -> entries, so long lists stay fast
+    private record TagEntry(List<TagKey<Item>> items, List<TagKey<Fluid>> fluids, Entry entry) {}
+    private final List<TagEntry> tagEntries = new ArrayList<>(); // checked after the exact entries
     private final Runnable onChange;
     private boolean whitelist;
     private boolean matchComponents;
@@ -39,9 +48,16 @@ public class PipeFilter {
 
     public @Nullable Entry match(RegisteredResource<?> resource) {
         List<Key> same = byValue.get(resource.value());
-        if (same == null) return null;
-        if (!matchComponents) return same.get(0).entry();
-        return same.stream().filter(k -> k.resource().equals(resource)).map(Key::entry).findFirst().orElse(null);
+        if (same != null) {
+            if (!matchComponents) return same.get(0).entry();
+            var exact = same.stream().filter(k -> k.resource().equals(resource)).findFirst();
+            if (exact.isPresent()) return exact.get().entry();
+        }
+        for (TagEntry tag : tagEntries) {
+            if (resource instanceof ItemResource item && tag.items().stream().anyMatch(item::is)) return tag.entry();
+            if (resource instanceof FluidResource fluid && tag.fluids().stream().anyMatch(fluid::is)) return tag.entry();
+        }
+        return null;
     }
 
     public boolean allows(RegisteredResource<?> resource) {
@@ -53,11 +69,6 @@ public class PipeFilter {
         Entry entry = whitelist ? match(resource) : null;
         if (entry == null) return 0;
         return resource instanceof FluidResource ? entry.amount() * FluidType.BUCKET_VOLUME : entry.amount();
-    }
-
-    // Whether two resources count as the same entry, ignoring components unless the filter matches them.
-    public boolean sameEntry(RegisteredResource<?> a, RegisteredResource<?> b) {
-        return matchComponents ? a.equals(b) : a.value() == b.value();
     }
 
     public static boolean holdsFluid(ItemStack stack) {
@@ -115,7 +126,14 @@ public class PipeFilter {
 
     private void rebuildLookup() {
         byValue.clear();
+        tagEntries.clear();
         for (Entry e : entries) {
+            List<Identifier> tags = TagFilterItem.tags(e.stack());
+            if (!tags.isEmpty()) {
+                tagEntries.add(new TagEntry(tags.stream().map(id -> TagKey.create(Registries.ITEM, id)).toList(),
+                        tags.stream().map(id -> TagKey.create(Registries.FLUID, id)).toList(), e));
+                continue;
+            }
             add(ItemResource.of(e.stack()), e);
             FluidResource fluid = FluidResource.of(FluidUtil.getFirstStackContained(e.stack()));
             if (!fluid.isEmpty()) add(fluid, e);

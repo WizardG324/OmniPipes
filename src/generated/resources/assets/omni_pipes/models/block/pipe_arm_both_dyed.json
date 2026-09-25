@@ -7,8 +7,8 @@
           "uv": [
             0.0,
             0.0,
-            10.0,
-            2.0
+            11.0,
+            0.5
           ]
         },
         "east": {
@@ -16,24 +16,36 @@
           "uv": [
             0.0,
             0.0,
-            2.0,
-            10.0
+            0.5,
+            11.0
           ]
         },
         "north": {
           "cullface": "north",
-          "texture": "#connector"
+          "texture": "#connector",
+          "uv": [
+            0.0,
+            0.0,
+            11.0,
+            11.0
+          ]
         },
         "south": {
-          "texture": "#connector"
+          "texture": "#connector",
+          "uv": [
+            0.0,
+            0.0,
+            11.0,
+            11.0
+          ]
         },
         "up": {
           "texture": "#connector",
           "uv": [
             0.0,
             0.0,
-            10.0,
-            2.0
+            11.0,
+            0.5
           ]
         },
         "west": {
@@ -41,73 +53,89 @@
           "uv": [
             0.0,
             0.0,
-            2.0,
-            10.0
+            0.5,
+            11.0
           ]
         }
       },
       "from": [
-        3,
-        3,
+        2.5,
+        2.5,
         0
       ],
       "to": [
-        13,
-        13,
-        2
+        13.5,
+        13.5,
+        0.5
       ]
     },
     {
       "faces": {
         "down": {
-          "texture": "#port",
+          "texture": "#connector",
           "uv": [
-            4.0,
             0.0,
-            10.0,
-            3.0
+            0.0,
+            7.0,
+            0.5
           ]
         },
         "east": {
-          "texture": "#port",
+          "texture": "#connector",
           "uv": [
             0.0,
             0.0,
-            3.0,
-            6.0
+            0.5,
+            7.0
+          ]
+        },
+        "north": {
+          "cullface": "north",
+          "texture": "#connector",
+          "uv": [
+            2.0,
+            2.0,
+            9.0,
+            9.0
           ]
         },
         "south": {
-          "texture": "#port"
+          "texture": "#connector",
+          "uv": [
+            2.0,
+            2.0,
+            9.0,
+            9.0
+          ]
         },
         "up": {
-          "texture": "#port",
+          "texture": "#connector",
           "uv": [
-            4.0,
-            3.0,
-            10.0,
-            0.0
+            0.0,
+            0.0,
+            7.0,
+            0.5
           ]
         },
         "west": {
-          "texture": "#port",
+          "texture": "#connector",
           "uv": [
-            3.0,
             0.0,
             0.0,
-            6.0
+            0.5,
+            7.0
           ]
         }
       },
       "from": [
-        5,
-        5,
-        2
+        4.5,
+        4.5,
+        0.5
       ],
       "to": [
-        11,
-        11,
-        5
+        11.5,
+        11.5,
+        1
       ]
     },
     {
@@ -119,7 +147,7 @@
             6.0,
             0.0,
             10.0,
-            3.0
+            5.0
           ]
         },
         "east": {
@@ -128,7 +156,7 @@
           "uv": [
             0.0,
             6.0,
-            3.0,
+            5.0,
             10.0
           ]
         },
@@ -139,7 +167,7 @@
             6.0,
             0.0,
             10.0,
-            3.0
+            5.0
           ]
         },
         "west": {
@@ -148,7 +176,7 @@
           "uv": [
             0.0,
             6.0,
-            3.0,
+            5.0,
             10.0
           ]
         }
@@ -156,11 +184,61 @@
       "from": [
         6,
         6,
-        3
+        1
       ],
       "to": [
         10,
         10,
+        6
+      ]
+    },
+    {
+      "faces": {
+        "down": {
+          "texture": "#port_v",
+          "uv": [
+            0.0,
+            16.0,
+            16.0,
+            0.0
+          ]
+        },
+        "east": {
+          "texture": "#port",
+          "uv": [
+            0.0,
+            0.0,
+            16.0,
+            16.0
+          ]
+        },
+        "up": {
+          "texture": "#port_v",
+          "uv": [
+            0.0,
+            0.0,
+            16.0,
+            16.0
+          ]
+        },
+        "west": {
+          "texture": "#port",
+          "uv": [
+            16.0,
+            0.0,
+            0.0,
+            16.0
+          ]
+        }
+      },
+      "from": [
+        5.8,
+        5.8,
+        1
+      ],
+      "to": [
+        10.2,
+        10.2,
         6
       ]
     }
@@ -169,6 +247,7 @@
     "cable": "omni_pipes:block/cable_dyed",
     "connector": "omni_pipes:block/connector",
     "particle": "omni_pipes:block/cable_dyed",
-    "port": "omni_pipes:block/pipe_both"
+    "port": "omni_pipes:block/pipe_both",
+    "port_v": "omni_pipes:block/pipe_both_v"
   }
 }

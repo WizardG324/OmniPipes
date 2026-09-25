@@ -5,6 +5,7 @@ import com.wizardg.omnipipes.screen.PipeScreen;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.gui.handlers.IGhostIngredientHandler;
+import mezz.jei.api.gui.handlers.IGuiContainerHandler;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.registration.IGuiHandlerRegistration;
 import net.minecraft.client.renderer.Rect2i;
@@ -14,7 +15,7 @@ import net.neoforged.neoforge.fluids.FluidStack;
 
 import java.util.List;
 
-// Lets items and fluids be dragged from JEI onto the pipe's filter slots.
+// Keeps JEI clear of the pipe screen's side parts, and lets items and fluids be dragged onto its filter slots.
 @JeiPlugin
 public class ModJeiPlugin implements IModPlugin {
     @Override
@@ -24,6 +25,12 @@ public class ModJeiPlugin implements IModPlugin {
 
     @Override
     public void registerGuiHandlers(IGuiHandlerRegistration registration) {
+        registration.addGuiContainerHandler(PipeScreen.class, new IGuiContainerHandler<>() {
+            @Override
+            public List<Rect2i> getGuiExtraAreas(PipeScreen screen) {
+                return screen.extraAreas();
+            }
+        });
         registration.addGhostIngredientHandler(PipeScreen.class, new IGhostIngredientHandler<>() {
             @Override
             public <I> List<Target<I>> getTargetsTyped(PipeScreen screen, ITypedIngredient<I> ingredient, boolean doStart) {

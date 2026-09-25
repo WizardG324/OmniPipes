@@ -3,21 +3,23 @@ package com.wizardg.omnipipes.block.custom;
 import com.mojang.serialization.MapCodec;
 import com.wizardg.omnipipes.block.ModBlockEntities;
 import com.wizardg.omnipipes.block.entity.PipeBlockEntity;
+import com.wizardg.omnipipes.item.ModDataComponents;
 import com.wizardg.omnipipes.item.ModItems;
+import com.wizardg.omnipipes.item.PipeConfiguratorItem;
+import net.minecraft.nbt.CompoundTag;
 import com.wizardg.omnipipes.screen.PipeMenu;
 import com.wizardg.omnipipes.util.ModTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.RandomSource;
-import net.minecraft.util.ARGB;
 import net.minecraft.util.StringRepresentable;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
@@ -41,7 +43,9 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import org.jspecify.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.EnumMap;
 import java.util.Map;
 
@@ -70,11 +74,11 @@ public class PipeBlock extends Block implements EntityBlock {
         for (Direction dir : Direction.values()) SIDES.put(dir, EnumProperty.create(dir.getName(), Side.class));
     }
 
-    // Shape only depends on none/arm/arm+plate per side, so 3^6 = 729 shapes shared by every pipe block.
+    // Shape only depends on none/arm/port per side, so 3^6 = 729 shapes shared by every pipe block.
     private static final VoxelShape[] SHAPES = new VoxelShape[729];
     static {
         Map<Direction, VoxelShape> arms = Shapes.rotateAll(Block.boxZ(4, 0, 8));
-        Map<Direction, VoxelShape> plates = Shapes.rotateAll(Block.boxZ(10, 0, 3));
+        Map<Direction, VoxelShape> ports = Shapes.rotateAll(Block.boxZ(11, 0, 1));
         for (int key = 0; key < SHAPES.length; key++) {
             VoxelShape shape = Block.cube(4);
             int k = key;
@@ -82,7 +86,7 @@ public class PipeBlock extends Block implements EntityBlock {
                 int kind = k % 3;
                 k /= 3;
                 if (kind > 0) shape = Shapes.or(shape, arms.get(dir));
-                if (kind > 1) shape = Shapes.or(shape, plates.get(dir));
+                if (kind > 1) shape = Shapes.or(shape, ports.get(dir));
             }
             SHAPES[key] = shape.optimize();
         }
@@ -121,10 +125,13 @@ public class PipeBlock extends Block implements EntityBlock {
 
     // New block connections start as INSERT, existing modes are kept.
     // Pipes only connect to the exact same pipe block, so each color is its own network.
+    // A side disabled with the configurator, on this pipe or on the neighboring pipe, never connects.
     private Side sideFor(Level level, BlockPos pos, Direction dir, Side current) {
+        if (level.getBlockEntity(pos) instanceof PipeBlockEntity be && be.isDisabled(dir)) return Side.NONE;
         BlockPos n = pos.relative(dir);
         Block neighbor = level.getBlockState(n).getBlock();
-        if (neighbor == this) return Side.PIPE;
+        if (neighbor == this)
+            return level.getBlockEntity(n) instanceof PipeBlockEntity other && other.isDisabled(dir.getOpposite()) ? Side.NONE : Side.PIPE;
         if (neighbor instanceof PipeBlock) return Side.NONE;
         Direction side = dir.getOpposite();
         boolean handler = level.getCapability(Capabilities.Item.BLOCK, n, side) != null
@@ -149,11 +156,6 @@ public class PipeBlock extends Block implements EntityBlock {
         return state.setValue(prop, level instanceof Level l ? sideFor(l, pos, dir, state.getValue(prop)) : Side.NONE);
     }
 
-    // Tint for the core cube (tintindex 1), lifted toward white so dark pipes like black still show it.
-    public static int coreTint(DyeColor color) {
-        return ARGB.srgbLerp(0.2f, color.getTextureDiffuseColor(), 0xFFFFFFFF);
-    }
-
     public static boolean isPort(Side side) {
         return side.inserts() || side.extracts();
     }
@@ -170,6 +172,65 @@ public class PipeBlock extends Block implements EntityBlock {
         level.setBlockAndUpdate(pos, state.setValue(SIDES.get(dir), next));
     }
 
+    // Switches a side off or back on and reconnects it (and the neighboring pipe's side) to match. A block connection
+    // that comes back gets its old mode again instead of the default insert.
+    public void toggleSide(Level level, BlockPos pos, Direction dir, PipeBlockEntity be) {
+        var prop = SIDES.get(dir);
+        if (be.isDisabled(dir)) {
+            Side was = be.enable(dir);
+            refreshSide(level, pos, dir);
+            BlockState now = level.getBlockState(pos);
+            if (was != null && isPort(was) && isPort(now.getValue(prop))) level.setBlockAndUpdate(pos, now.setValue(prop, was));
+        } else {
+            be.disable(dir, level.getBlockState(pos).getValue(prop));
+            refreshSide(level, pos, dir);
+        }
+        BlockPos n = pos.relative(dir);
+        if (level.getBlockState(n).getBlock() instanceof PipeBlock other) other.refreshSide(level, n, dir.getOpposite());
+    }
+
+    private void refreshSide(Level level, BlockPos pos, Direction dir) {
+        BlockState state = level.getBlockState(pos);
+        var prop = SIDES.get(dir);
+        level.setBlockAndUpdate(pos, state.setValue(prop, sideFor(level, pos, dir, state.getValue(prop))));
+    }
+
+    // Picks the pipe up with its upgrades. Inventory.add fills matching stacks first, then free hotbar slots, then the
+    // rest of the inventory, whatever doesn't fit drops where the pipe was.
+    public static void dismantle(Player player, Level level, BlockPos pos, BlockState state, PipeBlockEntity be) {
+        List<ItemStack> items = new ArrayList<>(List.of(new ItemStack(state.getBlock())));
+        for (int i = 0; i < be.upgrades.getContainerSize(); i++)
+            if (!be.upgrades.getItem(i).isEmpty()) items.add(be.upgrades.removeItemNoUpdate(i));
+        level.removeBlock(pos, false);
+        level.playSound(null, pos, state.getSoundType().getBreakSound(), SoundSource.BLOCKS, 1, 1);
+        for (ItemStack stack : items)
+            if (!player.getInventory().add(stack)) popResource(level, pos, stack);
+    }
+
+    // Pipe Configurator: configuration mode toggles the clicked side or picks the pipe up (sneaking), copy mode copies
+    // a connection (sneaking) or pastes onto one. Returns the action bar message, if any.
+    private static @Nullable Component configure(ItemStack configurator, Player player, PipeBlock block, Level level, BlockPos pos,
+                                       BlockState state, Direction dir, PipeBlockEntity be) {
+        Component side = Component.translatable("screen.omni_pipes.side." + dir.getName());
+        if (!PipeConfiguratorItem.copyMode(configurator)) {
+            if (player.isShiftKeyDown()) {
+                dismantle(player, level, pos, state, be);
+                return null;
+            }
+            block.toggleSide(level, pos, dir, be);
+            return Component.translatable(be.isDisabled(dir) ? "message.omni_pipes.configurator.disabled" : "message.omni_pipes.configurator.enabled", side);
+        }
+        if (!isPort(state.getValue(SIDES.get(dir)))) return Component.translatable("message.omni_pipes.configurator.not_connection");
+        if (player.isShiftKeyDown()) {
+            configurator.set(ModDataComponents.COPIED_SETTINGS, be.copySettings(dir));
+            return Component.translatable("message.omni_pipes.configurator.copied", side);
+        }
+        CompoundTag copied = configurator.get(ModDataComponents.COPIED_SETTINGS);
+        if (copied == null) return Component.translatable("message.omni_pipes.configurator.nothing_copied");
+        be.pasteSettings(dir, copied);
+        return Component.translatable("message.omni_pipes.configurator.pasted", side);
+    }
+
     private static boolean isUpgradeItem(ItemStack stack) {
         return stack.is(ModTags.Items.TIER_UPGRADES) || stack.is(ModTags.Items.TYPE_UPGRADES);
     }
@@ -184,6 +245,14 @@ public class PipeBlock extends Block implements EntityBlock {
     @Override
     protected InteractionResult useItemOn(ItemStack itemStack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
         Direction dir = clickedSide(pos, hitResult);
+        if (itemStack.getItem() instanceof PipeConfiguratorItem) {
+            if (!player.mayBuild()) return InteractionResult.PASS; // adventure mode can't rewire or pick up pipes
+            if (!level.isClientSide() && level.getBlockEntity(pos) instanceof PipeBlockEntity be) {
+                Component message = configure(itemStack, player, this, level, pos, state, dir, be);
+                if (message != null) player.sendOverlayMessage(message);
+            }
+            return InteractionResult.SUCCESS;
+        }
         if (!player.isShiftKeyDown() || !isUpgradeItem(itemStack) || !isPort(state.getValue(SIDES.get(dir))))
             return super.useItemOn(itemStack, state, level, pos, player, hand, hitResult);
 
@@ -202,10 +271,7 @@ public class PipeBlock extends Block implements EntityBlock {
         if (!level.isClientSide() && level.getBlockEntity(pos) instanceof PipeBlockEntity be) {
             Component title = Component.translatable("screen.omni_pipes.pipe", Component.translatable("screen.omni_pipes.side." + dir.getName()));
             player.openMenu(new SimpleMenuProvider((id, inventory, p) -> new PipeMenu(id, inventory, be, dir), title),
-                    buf -> {
-                        buf.writeBlockPos(pos);
-                        buf.writeEnum(dir);
-                    });
+                    buf -> PipeMenu.writeOpenData(buf, be, dir));
         }
         return InteractionResult.SUCCESS;
     }

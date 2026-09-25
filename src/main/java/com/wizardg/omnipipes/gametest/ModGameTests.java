@@ -7,6 +7,7 @@ import com.wizardg.omnipipes.block.custom.PipeBlock.Side;
 import com.wizardg.omnipipes.block.entity.PipeBlockEntity;
 import com.wizardg.omnipipes.block.entity.PipeBlockEntity.RedstoneMode;
 import com.wizardg.omnipipes.config.ServerConfig;
+import com.wizardg.omnipipes.item.ModDataComponents;
 import com.wizardg.omnipipes.item.ModItems;
 import com.wizardg.omnipipes.screen.PipeMenu;
 import net.minecraft.core.BlockPos;
@@ -99,6 +100,27 @@ public class ModGameTests {
     public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> FLUID_FILTER =
             TEST_FUNCTIONS.register("fluid_filter", () -> ModGameTests::fluidFilter);
 
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> RELOAD_KEEPS_WORKING =
+            TEST_FUNCTIONS.register("reload_keeps_working", () -> ModGameTests::reloadKeepsWorking);
+
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> TIMER_SURVIVES_RELOAD =
+            TEST_FUNCTIONS.register("timer_survives_reload", () -> ModGameTests::timerSurvivesReload);
+
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> TAG_FILTER_ITEMS =
+            TEST_FUNCTIONS.register("tag_filter_items", () -> ModGameTests::tagFilterItems);
+
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> TAG_FILTER_FLUIDS =
+            TEST_FUNCTIONS.register("tag_filter_fluids", () -> ModGameTests::tagFilterFluids);
+
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> CONFIGURATOR_COPY_PASTE =
+            TEST_FUNCTIONS.register("configurator_copy_paste", () -> ModGameTests::configuratorCopyPaste);
+
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> CONFIGURATOR_DISABLE =
+            TEST_FUNCTIONS.register("configurator_disable", () -> ModGameTests::configuratorDisable);
+
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> CONFIGURATOR_DISMANTLE =
+            TEST_FUNCTIONS.register("configurator_dismantle", () -> ModGameTests::configuratorDismantle);
+
     public static void registerTests(RegisterGameTestsEvent event) {
         Holder<TestEnvironmentDefinition<?>> environment = event.registerEnvironment(id("default"));
         TestData<Holder<TestEnvironmentDefinition<?>>> testData = new TestData<>(
@@ -122,6 +144,13 @@ public class ModGameTests {
         event.registerTest(id("distribution_round_robin"), new FunctionGameTestInstance(DISTRIBUTION_ROUND_ROBIN.getKey(), testData));
         event.registerTest(id("speed_setting"), new FunctionGameTestInstance(SPEED_SETTING.getKey(), testData));
         event.registerTest(id("fluid_filter"), new FunctionGameTestInstance(FLUID_FILTER.getKey(), testData));
+        event.registerTest(id("reload_keeps_working"), new FunctionGameTestInstance(RELOAD_KEEPS_WORKING.getKey(), testData));
+        event.registerTest(id("timer_survives_reload"), new FunctionGameTestInstance(TIMER_SURVIVES_RELOAD.getKey(), testData));
+        event.registerTest(id("tag_filter_items"), new FunctionGameTestInstance(TAG_FILTER_ITEMS.getKey(), testData));
+        event.registerTest(id("tag_filter_fluids"), new FunctionGameTestInstance(TAG_FILTER_FLUIDS.getKey(), testData));
+        event.registerTest(id("configurator_copy_paste"), new FunctionGameTestInstance(CONFIGURATOR_COPY_PASTE.getKey(), testData));
+        event.registerTest(id("configurator_disable"), new FunctionGameTestInstance(CONFIGURATOR_DISABLE.getKey(), testData));
+        event.registerTest(id("configurator_dismantle"), new FunctionGameTestInstance(CONFIGURATOR_DISMANTLE.getKey(), testData));
         event.registerTest(id("pipe_shape"), new FunctionGameTestInstance(PIPE_SHAPE.getKey(), testData));
         event.registerTest(id("extract_recheck_delay"), new FunctionGameTestInstance(EXTRACT_RECHECK_DELAY.getKey(), testData));
     }
@@ -167,15 +196,20 @@ public class ModGameTests {
     }
 
     // Source starts empty, so the first extract fails and the pipe should wait extractRecheckDelay (50) ticks.
+    // An empty source fails the first try and each retry at normal speed, then the side pauses for the recheck
+    // delay: diamonds added after the last retry wait out the pause, not just one normal step.
     private static void extractRecheckDelay(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT);
         BarrelBlockEntity source = helper.getBlockEntity(new BlockPos(1, 1, 2), BarrelBlockEntity.class);
         source.clearContent();
+        int speed = ServerConfig.base.transferRate().get();
+        int lastRetry = ServerConfig.retriesBeforePausing.get() * speed;
+        int pause = ServerConfig.extractRecheckDelay.get();
         helper.startSequence()
-                .thenIdle(11)
+                .thenIdle(lastRetry + 5)
                 .thenExecute(() -> source.setItem(0, new ItemStack(Items.DIAMOND, 5)))
-                .thenExecuteFor(20, () -> helper.assertTrue(diamonds(helper, 1) == 5, "pipe should still be waiting"))
-                .thenWaitUntil(() -> helper.assertTrue(diamonds(helper, 2) == 5, "pipe should resume after the delay"))
+                .thenExecuteFor(pause - 10, () -> helper.assertTrue(diamonds(helper, 1) == 5, "pipe should be paused"))
+                .thenWaitUntil(() -> helper.assertTrue(diamonds(helper, 2) == 5, "pipe should resume after the pause"))
                 .thenSucceed();
     }
 
@@ -187,8 +221,8 @@ public class ModGameTests {
                 .setValue(PipeBlock.SIDES.get(Direction.UP), Side.PIPE));
         var box = helper.getBlockState(pos).getShape(helper.getLevel(), helper.absolutePos(pos)).bounds();
         helper.assertTrue(box.minZ == 0 && box.maxZ == 10 / 16.0, "north arm should reach the block edge");
-        helper.assertTrue(box.minX == 3 / 16.0 && box.maxX == 13 / 16.0, "north plate should be 10px wide");
-        helper.assertTrue(box.minY == 3 / 16.0 && box.maxY == 1, "up arm should reach the top, plate sets the bottom");
+        helper.assertTrue(box.minX == 2.5 / 16.0 && box.maxX == 13.5 / 16.0, "north plate should be 11px wide");
+        helper.assertTrue(box.minY == 2.5 / 16.0 && box.maxY == 1, "up arm should reach the top, plate sets the bottom");
         helper.succeed();
     }
 
@@ -401,5 +435,135 @@ public class ModGameTests {
                 .set(0, new ItemStack(Items.WATER_BUCKET));
         helper.onEachTick(() -> helper.assertBlockPresent(Blocks.CAULDRON, new BlockPos(2, 1, 2)));
         helper.succeedWhen(() -> helper.assertBlockPresent(Blocks.WATER_CAULDRON, new BlockPos(3, 1, 2)));
+    }
+
+    // Two "both" sides on different channels keep moving after their block entities are saved and loaded again,
+    // like rejoining a world: first extracts on channel 1 into the second, the second extracts on 2 (nowhere).
+    private static void reloadKeepsWorking(GameTestHelper helper) {
+        pipeRow(helper, Side.BOTH, Side.BOTH);
+        PipeBlockEntity first = helper.getBlockEntity(new BlockPos(1, 1, 1), PipeBlockEntity.class);
+        PipeBlockEntity second = helper.getBlockEntity(new BlockPos(2, 1, 1), PipeBlockEntity.class);
+        first.setExtractChannel(Direction.SOUTH, 1);
+        second.setInsertChannel(Direction.SOUTH, 1);
+        second.setExtractChannel(Direction.SOUTH, 2);
+        reload(helper, new BlockPos(1, 1, 1));
+        reload(helper, new BlockPos(2, 1, 1));
+        helper.succeedWhen(() -> helper.assertTrue(diamonds(helper, 2) == 5, "diamonds should still reach the second barrel"));
+    }
+
+    private static void reload(GameTestHelper helper, BlockPos pos) {
+        var level = helper.getLevel();
+        BlockPos abs = helper.absolutePos(pos);
+        var tag = level.getBlockEntity(abs).saveWithFullMetadata(level.registryAccess());
+        level.removeBlockEntity(abs);
+        level.setBlockEntity(net.minecraft.world.level.block.entity.BlockEntity.loadStatic(abs, level.getBlockState(abs), tag, level.registryAccess()));
+    }
+
+    // A pipe set to the slowest speed keeps waiting after a reload instead of transferring again right away.
+    private static void timerSurvivesReload(GameTestHelper helper) {
+        pipeRow(helper, Side.EXTRACT, Side.INSERT);
+        helper.getBlockEntity(new BlockPos(1, 1, 2), BarrelBlockEntity.class).setItem(0, new ItemStack(Items.DIAMOND, 64));
+        helper.getBlockEntity(new BlockPos(1, 1, 1), PipeBlockEntity.class).changeSpeed(Direction.SOUTH, 1000);
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(diamonds(helper, 2) > 0, "first transfer should happen right away"))
+                .thenExecute(() -> reload(helper, new BlockPos(1, 1, 1)))
+                .thenExecuteFor(100, () -> helper.assertTrue(diamonds(helper, 2) == 8, "reload should not reset the wait"))
+                .thenSucceed();
+    }
+
+    private static ItemStack tagFilter(String... tags) {
+        ItemStack stack = new ItemStack(ModItems.TAG_FILTER.get());
+        stack.set(ModDataComponents.TAGS, java.util.Arrays.stream(tags).map(Identifier::parse).toList());
+        return stack;
+    }
+
+    // Extract whitelist holding a Tag Filter for c:gems/diamond: the diamonds move, the emeralds stay.
+    private static void tagFilterItems(GameTestHelper helper) {
+        pipeRow(helper, Side.EXTRACT, Side.INSERT);
+        helper.getBlockEntity(new BlockPos(1, 1, 2), BarrelBlockEntity.class).setItem(1, new ItemStack(Items.EMERALD, 3));
+        var filter = helper.getBlockEntity(new BlockPos(1, 1, 1), PipeBlockEntity.class).getFilter(Direction.SOUTH, false);
+        filter.toggleWhitelist();
+        filter.set(0, tagFilter("c:gems/diamond"));
+        helper.onEachTick(() -> helper.assertTrue(count(helper, 2, Items.EMERALD) == 0, "emeralds are not in the tag"));
+        helper.succeedWhen(() -> helper.assertTrue(diamonds(helper, 2) == 5, "diamonds should pass the tag filter"));
+    }
+
+    // A Tag Filter for the minecraft:water fluid tag in a blacklist blocks water, like a water bucket would.
+    private static void tagFilterFluids(GameTestHelper helper) {
+        pipeRow(helper, Side.EXTRACT, Side.INSERT, Side.INSERT);
+        helper.setBlock(new BlockPos(1, 1, 2), Blocks.WATER_CAULDRON.defaultBlockState().setValue(LayeredCauldronBlock.LEVEL, 3));
+        helper.setBlock(new BlockPos(2, 1, 2), Blocks.CAULDRON);
+        helper.setBlock(new BlockPos(3, 1, 2), Blocks.CAULDRON);
+        helper.getBlockEntity(new BlockPos(1, 1, 1), PipeBlockEntity.class).upgrades
+                .setItem(Direction.SOUTH.ordinal() * PipeBlockEntity.UPGRADES_PER_SIDE + 1, new ItemStack(ModItems.FLUID_UPGRADE.get()));
+        helper.getBlockEntity(new BlockPos(2, 1, 1), PipeBlockEntity.class).getFilter(Direction.SOUTH, true).set(0, tagFilter("minecraft:water"));
+        helper.onEachTick(() -> helper.assertBlockPresent(Blocks.CAULDRON, new BlockPos(2, 1, 2)));
+        helper.succeedWhen(() -> helper.assertBlockPresent(Blocks.WATER_CAULDRON, new BlockPos(3, 1, 2)));
+    }
+
+    // Copying an extract connection onto an insert one brings the mode, settings and filter along.
+    private static void configuratorCopyPaste(GameTestHelper helper) {
+        pipeRow(helper, Side.EXTRACT, Side.INSERT);
+        PipeBlockEntity from = helper.getBlockEntity(new BlockPos(1, 1, 1), PipeBlockEntity.class);
+        PipeBlockEntity to = helper.getBlockEntity(new BlockPos(2, 1, 1), PipeBlockEntity.class);
+        from.setExtractChannel(Direction.SOUTH, 5);
+        from.setDistribution(Direction.SOUTH, PipeBlockEntity.Distribution.FURTHEST);
+        from.changeSpeed(Direction.SOUTH, 20);
+        from.getFilter(Direction.SOUTH, false).toggleWhitelist();
+        from.getFilter(Direction.SOUTH, false).set(0, new ItemStack(Items.DIAMOND));
+        to.pasteSettings(Direction.SOUTH, from.copySettings(Direction.SOUTH));
+        var filter = to.getFilter(Direction.SOUTH, false);
+        helper.assertTrue(to.getBlockState().getValue(PipeBlock.SIDES.get(Direction.SOUTH)) == Side.EXTRACT, "mode should be pasted");
+        helper.assertTrue(to.getExtractChannel(Direction.SOUTH) == 5, "channel should be pasted");
+        helper.assertTrue(to.getDistribution(Direction.SOUTH) == PipeBlockEntity.Distribution.FURTHEST, "distribution should be pasted");
+        helper.assertTrue(to.getSpeed(Direction.SOUTH) == from.getSpeed(Direction.SOUTH), "speed should be pasted");
+        helper.assertTrue(filter.isWhitelist() && filter.entries().size() == 1 && filter.entries().getFirst().stack().is(Items.DIAMOND),
+                "filter should be pasted");
+        helper.succeed();
+    }
+
+    // Switching off the side between two pipes splits them on both ends, switching it back on reconnects them.
+    private static void configuratorDisable(GameTestHelper helper) {
+        pipeRow(helper, Side.EXTRACT, Side.INSERT);
+        BlockPos first = new BlockPos(1, 1, 1), second = new BlockPos(2, 1, 1);
+        PipeBlockEntity be = helper.getBlockEntity(first, PipeBlockEntity.class);
+        PipeBlock block = (PipeBlock) be.getBlockState().getBlock();
+        block.toggleSide(helper.getLevel(), helper.absolutePos(first), Direction.EAST, be);
+        helper.assertTrue(helper.getBlockState(first).getValue(PipeBlock.SIDES.get(Direction.EAST)) == Side.NONE, "disabled side should drop its arm");
+        helper.assertTrue(helper.getBlockState(second).getValue(PipeBlock.SIDES.get(Direction.WEST)) == Side.NONE, "neighbor should disconnect too");
+        helper.startSequence()
+                .thenExecuteFor(60, () -> helper.assertTrue(diamonds(helper, 2) == 0, "split pipes should not transfer"))
+                .thenExecute(() -> {
+                    block.toggleSide(helper.getLevel(), helper.absolutePos(first), Direction.EAST, be);
+                    // The extract connection keeps its mode through being switched off and on.
+                    block.toggleSide(helper.getLevel(), helper.absolutePos(first), Direction.SOUTH, be);
+                    block.toggleSide(helper.getLevel(), helper.absolutePos(first), Direction.SOUTH, be);
+                    helper.assertTrue(helper.getBlockState(first).getValue(PipeBlock.SIDES.get(Direction.SOUTH)) == Side.EXTRACT,
+                            "re-enabled connection should keep its mode");
+                })
+                .thenWaitUntil(() -> helper.assertTrue(diamonds(helper, 2) == 5, "re-enabled pipes should transfer again"))
+                .thenSucceed();
+    }
+
+    // Dismantling removes the pipe and hands it back with its upgrade, the pipe joins the existing stack of pipes in the
+    // main inventory before taking a free hotbar slot.
+    private static void configuratorDismantle(GameTestHelper helper) {
+        pipeRow(helper, Side.EXTRACT);
+        BlockPos pos = new BlockPos(1, 1, 1);
+        PipeBlockEntity be = helper.getBlockEntity(pos, PipeBlockEntity.class);
+        be.upgrades.setItem(Direction.SOUTH.ordinal() * PipeBlockEntity.UPGRADES_PER_SIDE, new ItemStack(ModItems.TIER_UPGRADES.getFirst().get()));
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        player.getInventory().setItem(20, new ItemStack(ModBlocks.PIPE.get(), 5));
+        PipeBlock.dismantle(player, helper.getLevel(), helper.absolutePos(pos), helper.getBlockState(pos), be);
+        helper.assertBlockPresent(Blocks.AIR, pos);
+        helper.assertTrue(player.getInventory().getItem(20).getCount() == 6, "pipe should join the existing stack");
+        helper.assertTrue(player.getInventory().getItem(0).is(ModItems.TIER_UPGRADES.getFirst().get()), "upgrade should go to the first hotbar slot");
+
+        // With a full inventory the pipe drops where it was.
+        helper.setBlock(pos, ModBlocks.PIPE.get());
+        for (int i = 0; i < 36; i++) player.getInventory().setItem(i, new ItemStack(Items.DIRT, 64));
+        PipeBlock.dismantle(player, helper.getLevel(), helper.absolutePos(pos), helper.getBlockState(pos), helper.getBlockEntity(pos, PipeBlockEntity.class));
+        helper.assertItemEntityPresent(ModBlocks.PIPE.get().asItem(), pos, 1);
+        helper.succeed();
     }
 }
