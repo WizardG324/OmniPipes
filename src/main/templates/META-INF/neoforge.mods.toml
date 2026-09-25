@@ -11,12 +11,11 @@ displayName="${mod_name}" #mandatory
 
 authors="WizardG"
 
-description='''
-The one pipe to rule them all, aims to transfer just about anything and everything
-'''
+logoFile="logo.png"
 
-[[mixins]]
-config="${mod_id}.mixins.json"
+description='''
+The one pipe solution to transferring just about anything.
+'''
 
 #[[accessTransformers]]
 #file="META-INF/accesstransformer.cfg"

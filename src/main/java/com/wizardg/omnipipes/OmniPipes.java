@@ -1,4 +1,4 @@
-package com.wizardg.aiop;
+package com.wizardg.omnipipes;
 
 import org.slf4j.Logger;
 
@@ -8,11 +8,11 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.ModContainer;
 
-@Mod(AIOPAllinOnePipe.MODID)
-public class AIOPAllinOnePipe {
-    public static final String MODID = "aiop";
+@Mod(OmniPipes.MODID)
+public class OmniPipes {
+    public static final String MODID = "omni_pipes";
     public static final Logger LOGGER = LogUtils.getLogger();
 
-    public AIOPAllinOnePipe(IEventBus modEventBus, ModContainer modContainer) {
+    public OmniPipes(IEventBus modEventBus, ModContainer modContainer) {
     }
 }
