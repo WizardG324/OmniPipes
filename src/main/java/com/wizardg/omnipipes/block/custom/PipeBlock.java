@@ -16,16 +16,16 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.LevelReader;
-import net.minecraft.world.level.ScheduledTickAccess;
+import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -34,14 +34,13 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
-import net.minecraft.world.level.redstone.Orientation;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.neoforged.neoforge.capabilities.Capabilities;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -77,10 +76,14 @@ public class PipeBlock extends Block implements EntityBlock {
     // Shape only depends on none/arm/port per side, so 3^6 = 729 shapes shared by every pipe block.
     private static final VoxelShape[] SHAPES = new VoxelShape[729];
     static {
-        Map<Direction, VoxelShape> arms = Shapes.rotateAll(Block.boxZ(4, 0, 8));
-        Map<Direction, VoxelShape> ports = Shapes.rotateAll(Block.boxZ(11, 0, 1));
+        Map<Direction, VoxelShape> arms = new EnumMap<>(Direction.class);
+        Map<Direction, VoxelShape> ports = new EnumMap<>(Direction.class);
+        for (Direction dir : Direction.values()) {
+            arms.put(dir, toward(dir, 4, 0, 8));
+            ports.put(dir, toward(dir, 11, 0, 1));
+        }
         for (int key = 0; key < SHAPES.length; key++) {
-            VoxelShape shape = Block.cube(4);
+            VoxelShape shape = Block.box(6, 6, 6, 10, 10, 10);
             int k = key;
             for (Direction dir : Direction.values()) {
                 int kind = k % 3;
@@ -90,6 +93,18 @@ public class PipeBlock extends Block implements EntityBlock {
             }
             SHAPES[key] = shape.optimize();
         }
+    }
+
+    // A size x size box centered on the side's face, reaching from depth "from" to depth "to" into the block.
+    private static VoxelShape toward(Direction dir, double size, double from, double to) {
+        double lo = 8 - size / 2, hi = 8 + size / 2;
+        double near = dir.getAxisDirection() == Direction.AxisDirection.NEGATIVE ? from : 16 - to;
+        double far = dir.getAxisDirection() == Direction.AxisDirection.NEGATIVE ? to : 16 - from;
+        return switch (dir.getAxis()) {
+            case X -> Block.box(near, lo, lo, far, hi, hi);
+            case Y -> Block.box(lo, near, lo, hi, far, hi);
+            case Z -> Block.box(lo, lo, near, hi, hi, far);
+        };
     }
 
     private static int shapeKey(BlockState state) {
@@ -134,9 +149,9 @@ public class PipeBlock extends Block implements EntityBlock {
             return level.getBlockEntity(n) instanceof PipeBlockEntity other && other.isDisabled(dir.getOpposite()) ? Side.NONE : Side.PIPE;
         if (neighbor instanceof PipeBlock) return Side.NONE;
         Direction side = dir.getOpposite();
-        boolean handler = level.getCapability(Capabilities.Item.BLOCK, n, side) != null
-                || level.getCapability(Capabilities.Fluid.BLOCK, n, side) != null
-                || level.getCapability(Capabilities.Energy.BLOCK, n, side) != null;
+        boolean handler = level.getCapability(Capabilities.ItemHandler.BLOCK, n, side) != null
+                || level.getCapability(Capabilities.FluidHandler.BLOCK, n, side) != null
+                || level.getCapability(Capabilities.EnergyStorage.BLOCK, n, side) != null;
         if (!handler) return Side.NONE;
         return current == Side.NONE || current == Side.PIPE ? Side.INSERT : current;
     }
@@ -150,14 +165,38 @@ public class PipeBlock extends Block implements EntityBlock {
     }
 
     @Override
-    protected BlockState updateShape(BlockState state, LevelReader level, ScheduledTickAccess ticks, BlockPos pos,
-                                     Direction dir, BlockPos neighborPos, BlockState neighborState, RandomSource random) {
+    protected BlockState updateShape(BlockState state, Direction dir, BlockState neighborState, LevelAccessor level,
+                                     BlockPos pos, BlockPos neighborPos) {
         var prop = SIDES.get(dir);
         return state.setValue(prop, level instanceof Level l ? sideFor(l, pos, dir, state.getValue(prop)) : Side.NONE);
     }
 
     public static boolean isPort(Side side) {
         return side.inserts() || side.extracts();
+    }
+
+    // Which part model draws this side (client/PipeModel): the arm or connection when the side has one, otherwise a
+    // core face that continues the tube on a straight run of plain pipe and shows the box joint everywhere else.
+    public static String modelPart(BlockState state, Direction dir) {
+        Side side = state.getValue(SIDES.get(dir));
+        if (side == Side.PIPE) return "arm";
+        if (isPort(side)) return "arm_" + side.getSerializedName();
+        Direction.Axis straight = straightAxis(state);
+        if (straight == null) return "core_box";
+        // The north-built face keeps its u on x (z for east/west) once rotated, which picks the stripe direction.
+        Direction.Axis u = dir.getAxis() == Direction.Axis.X ? Direction.Axis.Z : Direction.Axis.X;
+        return straight == u ? "core_u" : "core_v";
+    }
+
+    // The axis of a straight run of plain pipe (both sides on it PIPE, every other side NONE), null otherwise.
+    private static @Nullable Direction.Axis straightAxis(BlockState state) {
+        for (Direction.Axis axis : Direction.Axis.values()) {
+            boolean straight = true;
+            for (Direction dir : Direction.values())
+                if (state.getValue(SIDES.get(dir)) != (dir.getAxis() == axis ? Side.PIPE : Side.NONE)) straight = false;
+            if (straight) return axis;
+        }
+        return null;
     }
 
     private static final Side[] PORT_MODES = {Side.INSERT, Side.EXTRACT, Side.BOTH};
@@ -238,29 +277,29 @@ public class PipeBlock extends Block implements EntityBlock {
     // The arm that was clicked, the hit point's biggest offset from the center points along it.
     public static Direction clickedSide(BlockPos pos, BlockHitResult hit) {
         Vec3 d = hit.getLocation().subtract(Vec3.atCenterOf(pos));
-        return Direction.getApproximateNearest(d.x, d.y, d.z);
+        return Direction.getNearest(d.x, d.y, d.z);
     }
 
     // Shift right-clicking with an upgrade installs it on the clicked block connection.
     @Override
-    protected InteractionResult useItemOn(ItemStack itemStack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
+    protected ItemInteractionResult useItemOn(ItemStack itemStack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
         Direction dir = clickedSide(pos, hitResult);
         if (itemStack.getItem() instanceof PipeConfiguratorItem) {
-            if (!player.mayBuild()) return InteractionResult.PASS; // adventure mode can't rewire or pick up pipes
+            if (!player.mayBuild()) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION; // adventure mode can't rewire or pick up pipes
             if (!level.isClientSide() && level.getBlockEntity(pos) instanceof PipeBlockEntity be) {
                 Component message = configure(itemStack, player, this, level, pos, state, dir, be);
-                if (message != null) player.sendOverlayMessage(message);
+                if (message != null) player.displayClientMessage(message, true);
             }
-            return InteractionResult.SUCCESS;
+            return ItemInteractionResult.sidedSuccess(level.isClientSide());
         }
         if (!player.isShiftKeyDown() || !isUpgradeItem(itemStack) || !isPort(state.getValue(SIDES.get(dir))))
             return super.useItemOn(itemStack, state, level, pos, player, hand, hitResult);
 
         if (!level.isClientSide() && level.getBlockEntity(pos) instanceof PipeBlockEntity be) {
             String refused = be.installUpgrade(dir, itemStack, player);
-            if (refused != null) player.sendOverlayMessage(Component.translatable(refused));
+            if (refused != null) player.displayClientMessage(Component.translatable(refused), true);
         }
-        return InteractionResult.SUCCESS;
+        return ItemInteractionResult.sidedSuccess(level.isClientSide());
     }
 
     // Right-clicking on a block connection opens its settings.
@@ -278,8 +317,16 @@ public class PipeBlock extends Block implements EntityBlock {
 
     // Redstone signal changes arrive here, so the pipe can re-check which sides may run.
     @Override
-    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block block, @Nullable Orientation orientation, boolean movedByPiston) {
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block block, BlockPos neighborPos, boolean movedByPiston) {
         if (!level.isClientSide() && level.getBlockEntity(pos) instanceof PipeBlockEntity be) be.updateCanRun(state);
+    }
+
+    // Breaking the pipe drops its upgrades.
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        if (!state.is(newState.getBlock()) && level.getBlockEntity(pos) instanceof PipeBlockEntity be)
+            Containers.dropContents(level, pos, be.upgrades);
+        super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
     @Override

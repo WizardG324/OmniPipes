@@ -1,0 +1,7 @@
+{
+  "loader": "omni_pipes:pipe",
+  "suffix": "_dyed",
+  "textures": {
+    "particle": "omni_pipes:block/cable_dyed"
+  }
+}

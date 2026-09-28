@@ -6,14 +6,14 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 // Client -> server: an item dragged from JEI/REI onto a filter slot. Menu buttons can only carry an int, so this needs its own packet.
 public record SetFilterPayload(int containerId, int slot, ItemStack stack) implements CustomPacketPayload {
-    public static final Type<SetFilterPayload> TYPE = new Type<>(Identifier.fromNamespaceAndPath(OmniPipes.MODID, "set_filter"));
+    public static final Type<SetFilterPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(OmniPipes.MODID, "set_filter"));
     public static final StreamCodec<RegistryFriendlyByteBuf, SetFilterPayload> STREAM_CODEC = StreamCodec.composite(
             ByteBufCodecs.VAR_INT, SetFilterPayload::containerId,
             ByteBufCodecs.VAR_INT, SetFilterPayload::slot,

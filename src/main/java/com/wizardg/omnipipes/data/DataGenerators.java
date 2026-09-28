@@ -8,6 +8,7 @@ import net.minecraft.data.loot.LootTableProvider;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.common.data.ExistingFileHelper;
 import net.neoforged.neoforge.data.event.GatherDataEvent;
 
 import java.util.Collections;
@@ -18,17 +19,18 @@ import java.util.concurrent.CompletableFuture;
 public class DataGenerators {
 
     @SubscribeEvent
-    public static void gatherData(GatherDataEvent.Client event) {
+    public static void gatherData(GatherDataEvent event) {
         DataGenerator generator = event.getGenerator();
         PackOutput packOutput = generator.getPackOutput();
         CompletableFuture<HolderLookup.Provider> lookupProvider = event.getLookupProvider();
+        ExistingFileHelper existingFiles = event.getExistingFileHelper();
 
-        generator.addProvider(true, new ModBlockTagsProvider(packOutput, lookupProvider));
-        generator.addProvider(true, new ModItemTagsProvider(packOutput, lookupProvider));
+        ModBlockTagsProvider blockTags = generator.addProvider(true, new ModBlockTagsProvider(packOutput, lookupProvider, existingFiles));
+        generator.addProvider(true, new ModItemTagsProvider(packOutput, lookupProvider, blockTags.contentsGetter(), existingFiles));
         generator.addProvider(true, new ModLangProvider(packOutput));
         generator.addProvider(true, new LootTableProvider(packOutput, Collections.emptySet(),
                 List.of(new LootTableProvider.SubProviderEntry(ModLootTableProvider::new, LootContextParamSets.BLOCK)), lookupProvider));
-        generator.addProvider(true, new ModRecipeProvider.Runner(packOutput, lookupProvider));
-        generator.addProvider(true, new ModModelProvider(packOutput));
+        generator.addProvider(true, new ModRecipeProvider(packOutput, lookupProvider));
+        generator.addProvider(true, new ModModelProvider(packOutput, existingFiles));
     }
 }

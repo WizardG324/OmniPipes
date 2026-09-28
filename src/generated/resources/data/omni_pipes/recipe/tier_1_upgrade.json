@@ -3,9 +3,15 @@
   "category": "misc",
   "group": "omni_pipes_upgrade",
   "key": {
-    "I": "#c:ingots/iron",
-    "P": "#omni_pipes:pipes",
-    "R": "#c:dusts/redstone"
+    "I": {
+      "tag": "c:ingots/iron"
+    },
+    "P": {
+      "tag": "omni_pipes:pipes"
+    },
+    "R": {
+      "tag": "c:dusts/redstone"
+    }
   },
   "pattern": [
     "IRI",
@@ -13,6 +19,7 @@
     "IRI"
   ],
   "result": {
+    "count": 1,
     "id": "omni_pipes:tier_1_upgrade"
   }
 }

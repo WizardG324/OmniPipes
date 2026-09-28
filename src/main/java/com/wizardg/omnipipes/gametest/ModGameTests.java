@@ -14,13 +14,13 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.gametest.framework.FunctionGameTestInstance;
+import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.minecraft.gametest.framework.TestData;
-import net.minecraft.gametest.framework.TestEnvironmentDefinition;
-import net.minecraft.resources.Identifier;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -31,132 +31,17 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.entity.BarrelBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.event.RegisterGameTestsEvent;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.neoforged.neoforge.registries.DeferredRegister;
 
-import java.util.function.Consumer;
 
+@GameTestHolder(OmniPipes.MODID)
+@PrefixGameTestTemplate(false)
 public class ModGameTests {
-    public static final DeferredRegister<Consumer<GameTestHelper>> TEST_FUNCTIONS =
-            DeferredRegister.create(Registries.TEST_FUNCTION, OmniPipes.MODID);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> EXTRACT_TO_INSERT =
-            TEST_FUNCTIONS.register("extract_to_insert", () -> ModGameTests::extractToInsert);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> CHANNELS_ROUTE =
-            TEST_FUNCTIONS.register("channels_route", () -> ModGameTests::channelsRoute);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> BOTH_RECEIVES =
-            TEST_FUNCTIONS.register("both_receives", () -> ModGameTests::bothReceives);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> EXTRACT_RECHECK_DELAY =
-            TEST_FUNCTIONS.register("extract_recheck_delay", () -> ModGameTests::extractRecheckDelay);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> PIPE_SHAPE =
-            TEST_FUNCTIONS.register("pipe_shape", () -> ModGameTests::pipeShape);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> SAME_TYPE_CONNECTS =
-            TEST_FUNCTIONS.register("same_type_connects", () -> ModGameTests::sameTypeConnects);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> REDSTONE_HIGH_SIGNAL =
-            TEST_FUNCTIONS.register("redstone_high_signal", () -> ModGameTests::redstoneHighSignal);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> MENU_BUTTONS =
-            TEST_FUNCTIONS.register("menu_buttons", () -> ModGameTests::menuButtons);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> TIER_1_UPGRADE_RATE =
-            TEST_FUNCTIONS.register("tier_1_upgrade_rate", () -> ModGameTests::tier1UpgradeRate);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> CREATIVE_UPGRADE_RATE =
-            TEST_FUNCTIONS.register("creative_upgrade_rate", () -> ModGameTests::creativeUpgradeRate);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> INSTALL_UPGRADE =
-            TEST_FUNCTIONS.register("install_upgrade", () -> ModGameTests::installUpgrade);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> EXTRACT_WHITELIST =
-            TEST_FUNCTIONS.register("extract_whitelist", () -> ModGameTests::extractWhitelist);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> INSERT_BLACKLIST =
-            TEST_FUNCTIONS.register("insert_blacklist", () -> ModGameTests::insertBlacklist);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> FILTER_SLOT_CLICKS =
-            TEST_FUNCTIONS.register("filter_slot_clicks", () -> ModGameTests::filterSlotClicks);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> INSERT_STOCK =
-            TEST_FUNCTIONS.register("insert_stock", () -> ModGameTests::insertStock);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> EXTRACT_BATCH =
-            TEST_FUNCTIONS.register("extract_batch", () -> ModGameTests::extractBatch);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> DISTRIBUTION_FURTHEST =
-            TEST_FUNCTIONS.register("distribution_furthest", () -> ModGameTests::distributionFurthest);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> DISTRIBUTION_ROUND_ROBIN =
-            TEST_FUNCTIONS.register("distribution_round_robin", () -> ModGameTests::distributionRoundRobin);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> SPEED_SETTING =
-            TEST_FUNCTIONS.register("speed_setting", () -> ModGameTests::speedSetting);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> FLUID_FILTER =
-            TEST_FUNCTIONS.register("fluid_filter", () -> ModGameTests::fluidFilter);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> RELOAD_KEEPS_WORKING =
-            TEST_FUNCTIONS.register("reload_keeps_working", () -> ModGameTests::reloadKeepsWorking);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> TIMER_SURVIVES_RELOAD =
-            TEST_FUNCTIONS.register("timer_survives_reload", () -> ModGameTests::timerSurvivesReload);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> TAG_FILTER_ITEMS =
-            TEST_FUNCTIONS.register("tag_filter_items", () -> ModGameTests::tagFilterItems);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> TAG_FILTER_FLUIDS =
-            TEST_FUNCTIONS.register("tag_filter_fluids", () -> ModGameTests::tagFilterFluids);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> CONFIGURATOR_COPY_PASTE =
-            TEST_FUNCTIONS.register("configurator_copy_paste", () -> ModGameTests::configuratorCopyPaste);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> CONFIGURATOR_DISABLE =
-            TEST_FUNCTIONS.register("configurator_disable", () -> ModGameTests::configuratorDisable);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> CONFIGURATOR_DISMANTLE =
-            TEST_FUNCTIONS.register("configurator_dismantle", () -> ModGameTests::configuratorDismantle);
-
     public static void registerTests(RegisterGameTestsEvent event) {
-        Holder<TestEnvironmentDefinition<?>> environment = event.registerEnvironment(id("default"));
-        TestData<Holder<TestEnvironmentDefinition<?>>> testData = new TestData<>(
-                environment, Identifier.withDefaultNamespace("empty"), 200, 1, true, Rotation.NONE, false, 1, 1, false, 8);
-
-        event.registerTest(id("extract_to_insert"), new FunctionGameTestInstance(EXTRACT_TO_INSERT.getKey(), testData));
-        event.registerTest(id("channels_route"), new FunctionGameTestInstance(CHANNELS_ROUTE.getKey(), testData));
-        event.registerTest(id("both_receives"), new FunctionGameTestInstance(BOTH_RECEIVES.getKey(), testData));
-        event.registerTest(id("same_type_connects"), new FunctionGameTestInstance(SAME_TYPE_CONNECTS.getKey(), testData));
-        event.registerTest(id("redstone_high_signal"), new FunctionGameTestInstance(REDSTONE_HIGH_SIGNAL.getKey(), testData));
-        event.registerTest(id("menu_buttons"), new FunctionGameTestInstance(MENU_BUTTONS.getKey(), testData));
-        event.registerTest(id("tier_1_upgrade_rate"), new FunctionGameTestInstance(TIER_1_UPGRADE_RATE.getKey(), testData));
-        event.registerTest(id("creative_upgrade_rate"), new FunctionGameTestInstance(CREATIVE_UPGRADE_RATE.getKey(), testData));
-        event.registerTest(id("install_upgrade"), new FunctionGameTestInstance(INSTALL_UPGRADE.getKey(), testData));
-        event.registerTest(id("extract_whitelist"), new FunctionGameTestInstance(EXTRACT_WHITELIST.getKey(), testData));
-        event.registerTest(id("insert_blacklist"), new FunctionGameTestInstance(INSERT_BLACKLIST.getKey(), testData));
-        event.registerTest(id("filter_slot_clicks"), new FunctionGameTestInstance(FILTER_SLOT_CLICKS.getKey(), testData));
-        event.registerTest(id("insert_stock"), new FunctionGameTestInstance(INSERT_STOCK.getKey(), testData));
-        event.registerTest(id("extract_batch"), new FunctionGameTestInstance(EXTRACT_BATCH.getKey(), testData));
-        event.registerTest(id("distribution_furthest"), new FunctionGameTestInstance(DISTRIBUTION_FURTHEST.getKey(), testData));
-        event.registerTest(id("distribution_round_robin"), new FunctionGameTestInstance(DISTRIBUTION_ROUND_ROBIN.getKey(), testData));
-        event.registerTest(id("speed_setting"), new FunctionGameTestInstance(SPEED_SETTING.getKey(), testData));
-        event.registerTest(id("fluid_filter"), new FunctionGameTestInstance(FLUID_FILTER.getKey(), testData));
-        event.registerTest(id("reload_keeps_working"), new FunctionGameTestInstance(RELOAD_KEEPS_WORKING.getKey(), testData));
-        event.registerTest(id("timer_survives_reload"), new FunctionGameTestInstance(TIMER_SURVIVES_RELOAD.getKey(), testData));
-        event.registerTest(id("tag_filter_items"), new FunctionGameTestInstance(TAG_FILTER_ITEMS.getKey(), testData));
-        event.registerTest(id("tag_filter_fluids"), new FunctionGameTestInstance(TAG_FILTER_FLUIDS.getKey(), testData));
-        event.registerTest(id("configurator_copy_paste"), new FunctionGameTestInstance(CONFIGURATOR_COPY_PASTE.getKey(), testData));
-        event.registerTest(id("configurator_disable"), new FunctionGameTestInstance(CONFIGURATOR_DISABLE.getKey(), testData));
-        event.registerTest(id("configurator_dismantle"), new FunctionGameTestInstance(CONFIGURATOR_DISMANTLE.getKey(), testData));
-        event.registerTest(id("pipe_shape"), new FunctionGameTestInstance(PIPE_SHAPE.getKey(), testData));
-        event.registerTest(id("extract_recheck_delay"), new FunctionGameTestInstance(EXTRACT_RECHECK_DELAY.getKey(), testData));
+        event.register(ModGameTests.class);
     }
 
-    private static Identifier id(String name) {
-        return Identifier.fromNamespaceAndPath(OmniPipes.MODID, name);
+    private static ResourceLocation id(String name) {
+        return ResourceLocation.fromNamespaceAndPath(OmniPipes.MODID, name);
     }
 
     // A row of pipes along x at z=1, each with a barrel to its south at z=2 using the given mode.
@@ -168,29 +53,32 @@ public class ModGameTests {
             if (x < modes.length - 1) s = s.setValue(PipeBlock.SIDES.get(Direction.EAST), Side.PIPE);
             helper.setBlock(new BlockPos(x + 1, 1, 1), s);
         }
-        helper.getBlockEntity(new BlockPos(1, 1, 2), BarrelBlockEntity.class).setItem(0, new ItemStack(Items.DIAMOND, 5));
+        helper.<BarrelBlockEntity>getBlockEntity(new BlockPos(1, 1, 2)).setItem(0, new ItemStack(Items.DIAMOND, 5));
     }
 
     private static int diamonds(GameTestHelper helper, int x) {
-        return helper.getBlockEntity(new BlockPos(x, 1, 2), BarrelBlockEntity.class).countItem(Items.DIAMOND);
+        return helper.<BarrelBlockEntity>getBlockEntity(new BlockPos(x, 1, 2)).countItem(Items.DIAMOND);
     }
 
-    private static void extractToInsert(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void extractToInsert(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT);
         helper.succeedWhen(() -> helper.assertTrue(diamonds(helper, 2) == 5, "diamonds should reach the insert barrel"));
     }
 
     // Extracting on red skips the white insert barrel next to it and goes to the red one.
-    private static void channelsRoute(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void channelsRoute(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT, Side.INSERT);
-        helper.getBlockEntity(new BlockPos(1, 1, 1), PipeBlockEntity.class).setExtractChannel(Direction.SOUTH, DyeColor.RED.getId());
-        helper.getBlockEntity(new BlockPos(3, 1, 1), PipeBlockEntity.class).setInsertChannel(Direction.SOUTH, DyeColor.RED.getId());
+        helper.<PipeBlockEntity>getBlockEntity(new BlockPos(1, 1, 1)).setExtractChannel(Direction.SOUTH, DyeColor.RED.getId());
+        helper.<PipeBlockEntity>getBlockEntity(new BlockPos(3, 1, 1)).setInsertChannel(Direction.SOUTH, DyeColor.RED.getId());
         helper.onEachTick(() -> helper.assertTrue(diamonds(helper, 2) == 0, "white insert should not get red channel items"));
         helper.succeedWhen(() -> helper.assertTrue(diamonds(helper, 3) == 5, "red insert should get the items"));
     }
 
     // A "both" side receives from an extract side like any insert side.
-    private static void bothReceives(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void bothReceives(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT, Side.BOTH);
         helper.succeedWhen(() -> helper.assertTrue(diamonds(helper, 2) == 5, "both side should receive"));
     }
@@ -198,9 +86,10 @@ public class ModGameTests {
     // Source starts empty, so the first extract fails and the pipe should wait extractRecheckDelay (50) ticks.
     // An empty source fails the first try and each retry at normal speed, then the side pauses for the recheck
     // delay: diamonds added after the last retry wait out the pause, not just one normal step.
-    private static void extractRecheckDelay(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void extractRecheckDelay(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT);
-        BarrelBlockEntity source = helper.getBlockEntity(new BlockPos(1, 1, 2), BarrelBlockEntity.class);
+        BarrelBlockEntity source = helper.<BarrelBlockEntity>getBlockEntity(new BlockPos(1, 1, 2));
         source.clearContent();
         int speed = ServerConfig.base.transferRate().get();
         int lastRetry = ServerConfig.retriesBeforePausing.get() * speed;
@@ -214,7 +103,8 @@ public class ModGameTests {
     }
 
     // North has a plate (insert), up has a plain arm, the rest is just the 4px core.
-    private static void pipeShape(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void pipeShape(GameTestHelper helper) {
         BlockPos pos = new BlockPos(1, 1, 1);
         helper.setBlock(pos, ModBlocks.PIPE.get().defaultBlockState()
                 .setValue(PipeBlock.SIDES.get(Direction.NORTH), Side.INSERT)
@@ -227,7 +117,8 @@ public class ModGameTests {
     }
 
     // A base pipe links to another base pipe but not to a red one next to it.
-    private static void sameTypeConnects(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void sameTypeConnects(GameTestHelper helper) {
         BlockPos pos = new BlockPos(1, 1, 1);
         helper.setBlock(pos, ModBlocks.PIPE.get());
         helper.setBlock(pos.east(), ModBlocks.COLORED_PIPES.get(DyeColor.RED).get());
@@ -239,10 +130,11 @@ public class ModGameTests {
     }
 
     // An extract side set to "Run on High Signal" waits until a redstone block powers the pipe.
-    private static void redstoneHighSignal(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void redstoneHighSignal(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT);
         BlockPos pipe = new BlockPos(1, 1, 1);
-        helper.getBlockEntity(pipe, PipeBlockEntity.class).setRedstone(Direction.SOUTH, RedstoneMode.HIGH_SIGNAL);
+        helper.<PipeBlockEntity>getBlockEntity(pipe).setRedstone(Direction.SOUTH, RedstoneMode.HIGH_SIGNAL);
         helper.startSequence()
                 .thenExecuteFor(20, () -> helper.assertTrue(diamonds(helper, 1) == 5, "unpowered pipe should not extract"))
                 .thenExecute(() -> helper.setBlock(pipe.above(), Blocks.REDSTONE_BLOCK))
@@ -251,10 +143,11 @@ public class ModGameTests {
     }
 
     // The GUI buttons change the side's settings on the server, right click (back) wraps around.
-    private static void menuButtons(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void menuButtons(GameTestHelper helper) {
         pipeRow(helper, Side.INSERT);
         BlockPos pipe = new BlockPos(1, 1, 1);
-        PipeBlockEntity be = helper.getBlockEntity(pipe, PipeBlockEntity.class);
+        PipeBlockEntity be = helper.<PipeBlockEntity>getBlockEntity(pipe);
         Player player = helper.makeMockPlayer(GameType.SURVIVAL);
         PipeMenu menu = new PipeMenu(0, player.getInventory(), be, Direction.SOUTH);
 
@@ -271,8 +164,8 @@ public class ModGameTests {
     // checks the first transfer moves exactly the expected amount.
     private static void firstTransferMoves(GameTestHelper helper, ItemStack tier, int expected) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT);
-        helper.getBlockEntity(new BlockPos(1, 1, 2), BarrelBlockEntity.class).setItem(0, new ItemStack(Items.DIAMOND, 64));
-        helper.getBlockEntity(new BlockPos(1, 1, 1), PipeBlockEntity.class).upgrades
+        helper.<BarrelBlockEntity>getBlockEntity(new BlockPos(1, 1, 2)).setItem(0, new ItemStack(Items.DIAMOND, 64));
+        helper.<PipeBlockEntity>getBlockEntity(new BlockPos(1, 1, 1)).upgrades
                 .setItem(Direction.SOUTH.ordinal() * PipeBlockEntity.UPGRADES_PER_SIDE, tier);
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(diamonds(helper, 2) > 0, "nothing moved"))
@@ -282,19 +175,22 @@ public class ModGameTests {
     }
 
     // Tier 1 uses the upgrade_tier_1 config amount instead of the base one.
-    private static void tier1UpgradeRate(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void tier1UpgradeRate(GameTestHelper helper) {
         firstTransferMoves(helper, new ItemStack(ModItems.TIER_UPGRADES.get(0).get()), ServerConfig.upgradeTiers.get(0).itemTransferRate().get());
     }
 
     // Creative upgrade moves everything at once.
-    private static void creativeUpgradeRate(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void creativeUpgradeRate(GameTestHelper helper) {
         firstTransferMoves(helper, new ItemStack(ModItems.CREATIVE_UPGRADE.get()), 64);
     }
 
     // Shift right click install: takes one item, swaps tiers, and says why when it refuses.
-    private static void installUpgrade(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void installUpgrade(GameTestHelper helper) {
         pipeRow(helper, Side.INSERT);
-        PipeBlockEntity be = helper.getBlockEntity(new BlockPos(1, 1, 1), PipeBlockEntity.class);
+        PipeBlockEntity be = helper.<PipeBlockEntity>getBlockEntity(new BlockPos(1, 1, 1));
         Player player = helper.makeMockPlayer(GameType.SURVIVAL);
         int first = Direction.SOUTH.ordinal() * PipeBlockEntity.UPGRADES_PER_SIDE;
         ItemStack tier1 = new ItemStack(ModItems.TIER_UPGRADES.get(0).get(), 3);
@@ -311,14 +207,15 @@ public class ModGameTests {
     }
 
     private static int count(GameTestHelper helper, int x, net.minecraft.world.item.Item item) {
-        return helper.getBlockEntity(new BlockPos(x, 1, 2), BarrelBlockEntity.class).countItem(item);
+        return helper.<BarrelBlockEntity>getBlockEntity(new BlockPos(x, 1, 2)).countItem(item);
     }
 
     // Extract whitelist with diamonds: the diamonds move, the dirt next to them stays.
-    private static void extractWhitelist(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void extractWhitelist(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT);
-        helper.getBlockEntity(new BlockPos(1, 1, 2), BarrelBlockEntity.class).setItem(1, new ItemStack(Items.DIRT, 5));
-        var filter = helper.getBlockEntity(new BlockPos(1, 1, 1), PipeBlockEntity.class).getFilter(Direction.SOUTH, false);
+        helper.<BarrelBlockEntity>getBlockEntity(new BlockPos(1, 1, 2)).setItem(1, new ItemStack(Items.DIRT, 5));
+        var filter = helper.<PipeBlockEntity>getBlockEntity(new BlockPos(1, 1, 1)).getFilter(Direction.SOUTH, false);
         filter.toggleWhitelist();
         filter.set(0, new ItemStack(Items.DIAMOND));
         helper.onEachTick(() -> helper.assertTrue(count(helper, 2, Items.DIRT) == 0, "dirt is not whitelisted"));
@@ -326,30 +223,32 @@ public class ModGameTests {
     }
 
     // Insert blacklist with diamonds on the first target: the diamonds skip it and go to the next one.
-    private static void insertBlacklist(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void insertBlacklist(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT, Side.INSERT);
-        helper.getBlockEntity(new BlockPos(2, 1, 1), PipeBlockEntity.class).getFilter(Direction.SOUTH, true)
+        helper.<PipeBlockEntity>getBlockEntity(new BlockPos(2, 1, 1)).getFilter(Direction.SOUTH, true)
                 .set(0, new ItemStack(Items.DIAMOND));
         helper.onEachTick(() -> helper.assertTrue(diamonds(helper, 2) == 0, "blacklisted insert should get no diamonds"));
         helper.succeedWhen(() -> helper.assertTrue(diamonds(helper, 3) == 5, "diamonds should reach the next insert"));
     }
 
     // Clicking a filter slot with an item copies it in (nothing is taken), right click removes it.
-    private static void filterSlotClicks(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void filterSlotClicks(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT);
-        PipeBlockEntity be = helper.getBlockEntity(new BlockPos(1, 1, 1), PipeBlockEntity.class);
+        PipeBlockEntity be = helper.<PipeBlockEntity>getBlockEntity(new BlockPos(1, 1, 1));
         Player player = helper.makeMockPlayer(GameType.SURVIVAL);
         PipeMenu menu = new PipeMenu(0, player.getInventory(), be, Direction.SOUTH);
         int firstFilterSlot = menu.slots.size() - PipeMenu.GRID_COLS * PipeMenu.GRID_ROWS;
         var filter = be.getFilter(Direction.SOUTH, false);
 
         menu.setCarried(new ItemStack(Items.DIAMOND, 3));
-        menu.clicked(firstFilterSlot + 5, 0, ContainerInput.PICKUP, player);
+        menu.clicked(firstFilterSlot + 5, 0, ClickType.PICKUP, player);
         helper.assertTrue(filter.entries().size() == 1 && filter.entries().get(0).stack().is(Items.DIAMOND), "diamond should be added to the filter");
         helper.assertTrue(menu.getCarried().getCount() == 3, "the carried stack should not be used up");
 
         menu.setCarried(ItemStack.EMPTY);
-        menu.clicked(firstFilterSlot, 1, ContainerInput.PICKUP, player);
+        menu.clicked(firstFilterSlot, 1, ClickType.PICKUP, player);
         helper.assertTrue(filter.entries().isEmpty(), "right click should remove the entry");
         helper.succeed();
     }
@@ -357,14 +256,15 @@ public class ModGameTests {
     // Whitelist with an amount on the given pipe's filter, 5 diamonds start in the first barrel.
     private static void stockSetup(GameTestHelper helper, boolean insert, int amount) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT);
-        var filter = helper.getBlockEntity(new BlockPos(insert ? 2 : 1, 1, 1), PipeBlockEntity.class).getFilter(Direction.SOUTH, insert);
+        var filter = helper.<PipeBlockEntity>getBlockEntity(new BlockPos(insert ? 2 : 1, 1, 1)).getFilter(Direction.SOUTH, insert);
         filter.toggleWhitelist();
         filter.set(0, new ItemStack(Items.DIAMOND));
         filter.setAmount(0, amount);
     }
 
     // Insert amount 3: the target is filled up to 3 and then stays there.
-    private static void insertStock(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void insertStock(GameTestHelper helper) {
         stockSetup(helper, true, 3);
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(diamonds(helper, 2) == 3, "target should be filled up to 3"))
@@ -373,7 +273,8 @@ public class ModGameTests {
     }
 
     // Extract amount 2: each transfer moves 2 diamonds (the base rate would move all 5 at once).
-    private static void extractBatch(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void extractBatch(GameTestHelper helper) {
         stockSetup(helper, false, 2);
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(diamonds(helper, 2) > 0, "nothing moved"))
@@ -383,17 +284,19 @@ public class ModGameTests {
     }
 
     // Furthest: the far insert barrel gets the diamonds, the near one stays empty.
-    private static void distributionFurthest(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void distributionFurthest(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT, Side.INSERT);
-        helper.getBlockEntity(new BlockPos(1, 1, 1), PipeBlockEntity.class).setDistribution(Direction.SOUTH, PipeBlockEntity.Distribution.FURTHEST);
+        helper.<PipeBlockEntity>getBlockEntity(new BlockPos(1, 1, 1)).setDistribution(Direction.SOUTH, PipeBlockEntity.Distribution.FURTHEST);
         helper.onEachTick(() -> helper.assertTrue(diamonds(helper, 2) == 0, "near insert should get nothing"));
         helper.succeedWhen(() -> helper.assertTrue(diamonds(helper, 3) == 5, "far insert should get the diamonds"));
     }
 
     // Round-robin with 1 diamond per transfer: the first two transfers go to different barrels.
-    private static void distributionRoundRobin(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void distributionRoundRobin(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT, Side.INSERT);
-        PipeBlockEntity be = helper.getBlockEntity(new BlockPos(1, 1, 1), PipeBlockEntity.class);
+        PipeBlockEntity be = helper.<PipeBlockEntity>getBlockEntity(new BlockPos(1, 1, 1));
         be.setDistribution(Direction.SOUTH, PipeBlockEntity.Distribution.ROUND_ROBIN);
         var filter = be.getFilter(Direction.SOUTH, false);
         filter.toggleWhitelist();
@@ -404,10 +307,11 @@ public class ModGameTests {
 
     // Speed stays between the tier's fastest and 200 ticks, a slower speed spaces transfers out,
     // and going back to the fastest follows the tier.
-    private static void speedSetting(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void speedSetting(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT);
-        helper.getBlockEntity(new BlockPos(1, 1, 2), BarrelBlockEntity.class).setItem(0, new ItemStack(Items.DIAMOND, 64));
-        PipeBlockEntity be = helper.getBlockEntity(new BlockPos(1, 1, 1), PipeBlockEntity.class);
+        helper.<BarrelBlockEntity>getBlockEntity(new BlockPos(1, 1, 2)).setItem(0, new ItemStack(Items.DIAMOND, 64));
+        PipeBlockEntity be = helper.<PipeBlockEntity>getBlockEntity(new BlockPos(1, 1, 1));
         be.changeSpeed(Direction.SOUTH, -1000);
         helper.assertTrue(be.getSpeed(Direction.SOUTH) == ServerConfig.base.transferRate().get(), "fastest without a tier should be the base rate");
         be.changeSpeed(Direction.SOUTH, 1000);
@@ -424,14 +328,15 @@ public class ModGameTests {
     }
 
     // A water bucket in a blacklist blocks water: the full cauldron skips the first insert and fills the second.
-    private static void fluidFilter(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void fluidFilter(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT, Side.INSERT);
         helper.setBlock(new BlockPos(1, 1, 2), Blocks.WATER_CAULDRON.defaultBlockState().setValue(LayeredCauldronBlock.LEVEL, 3));
         helper.setBlock(new BlockPos(2, 1, 2), Blocks.CAULDRON);
         helper.setBlock(new BlockPos(3, 1, 2), Blocks.CAULDRON);
-        helper.getBlockEntity(new BlockPos(1, 1, 1), PipeBlockEntity.class).upgrades
+        helper.<PipeBlockEntity>getBlockEntity(new BlockPos(1, 1, 1)).upgrades
                 .setItem(Direction.SOUTH.ordinal() * PipeBlockEntity.UPGRADES_PER_SIDE + 1, new ItemStack(ModItems.FLUID_UPGRADE.get()));
-        helper.getBlockEntity(new BlockPos(2, 1, 1), PipeBlockEntity.class).getFilter(Direction.SOUTH, true)
+        helper.<PipeBlockEntity>getBlockEntity(new BlockPos(2, 1, 1)).getFilter(Direction.SOUTH, true)
                 .set(0, new ItemStack(Items.WATER_BUCKET));
         helper.onEachTick(() -> helper.assertBlockPresent(Blocks.CAULDRON, new BlockPos(2, 1, 2)));
         helper.succeedWhen(() -> helper.assertBlockPresent(Blocks.WATER_CAULDRON, new BlockPos(3, 1, 2)));
@@ -439,10 +344,11 @@ public class ModGameTests {
 
     // Two "both" sides on different channels keep moving after their block entities are saved and loaded again,
     // like rejoining a world: first extracts on channel 1 into the second, the second extracts on 2 (nowhere).
-    private static void reloadKeepsWorking(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void reloadKeepsWorking(GameTestHelper helper) {
         pipeRow(helper, Side.BOTH, Side.BOTH);
-        PipeBlockEntity first = helper.getBlockEntity(new BlockPos(1, 1, 1), PipeBlockEntity.class);
-        PipeBlockEntity second = helper.getBlockEntity(new BlockPos(2, 1, 1), PipeBlockEntity.class);
+        PipeBlockEntity first = helper.<PipeBlockEntity>getBlockEntity(new BlockPos(1, 1, 1));
+        PipeBlockEntity second = helper.<PipeBlockEntity>getBlockEntity(new BlockPos(2, 1, 1));
         first.setExtractChannel(Direction.SOUTH, 1);
         second.setInsertChannel(Direction.SOUTH, 1);
         second.setExtractChannel(Direction.SOUTH, 2);
@@ -460,10 +366,11 @@ public class ModGameTests {
     }
 
     // A pipe set to the slowest speed keeps waiting after a reload instead of transferring again right away.
-    private static void timerSurvivesReload(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void timerSurvivesReload(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT);
-        helper.getBlockEntity(new BlockPos(1, 1, 2), BarrelBlockEntity.class).setItem(0, new ItemStack(Items.DIAMOND, 64));
-        helper.getBlockEntity(new BlockPos(1, 1, 1), PipeBlockEntity.class).changeSpeed(Direction.SOUTH, 1000);
+        helper.<BarrelBlockEntity>getBlockEntity(new BlockPos(1, 1, 2)).setItem(0, new ItemStack(Items.DIAMOND, 64));
+        helper.<PipeBlockEntity>getBlockEntity(new BlockPos(1, 1, 1)).changeSpeed(Direction.SOUTH, 1000);
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(diamonds(helper, 2) > 0, "first transfer should happen right away"))
                 .thenExecute(() -> reload(helper, new BlockPos(1, 1, 1)))
@@ -473,15 +380,16 @@ public class ModGameTests {
 
     private static ItemStack tagFilter(String... tags) {
         ItemStack stack = new ItemStack(ModItems.TAG_FILTER.get());
-        stack.set(ModDataComponents.TAGS, java.util.Arrays.stream(tags).map(Identifier::parse).toList());
+        stack.set(ModDataComponents.TAGS, java.util.Arrays.stream(tags).map(ResourceLocation::parse).toList());
         return stack;
     }
 
     // Extract whitelist holding a Tag Filter for c:gems/diamond: the diamonds move, the emeralds stay.
-    private static void tagFilterItems(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void tagFilterItems(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT);
-        helper.getBlockEntity(new BlockPos(1, 1, 2), BarrelBlockEntity.class).setItem(1, new ItemStack(Items.EMERALD, 3));
-        var filter = helper.getBlockEntity(new BlockPos(1, 1, 1), PipeBlockEntity.class).getFilter(Direction.SOUTH, false);
+        helper.<BarrelBlockEntity>getBlockEntity(new BlockPos(1, 1, 2)).setItem(1, new ItemStack(Items.EMERALD, 3));
+        var filter = helper.<PipeBlockEntity>getBlockEntity(new BlockPos(1, 1, 1)).getFilter(Direction.SOUTH, false);
         filter.toggleWhitelist();
         filter.set(0, tagFilter("c:gems/diamond"));
         helper.onEachTick(() -> helper.assertTrue(count(helper, 2, Items.EMERALD) == 0, "emeralds are not in the tag"));
@@ -489,23 +397,25 @@ public class ModGameTests {
     }
 
     // A Tag Filter for the minecraft:water fluid tag in a blacklist blocks water, like a water bucket would.
-    private static void tagFilterFluids(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void tagFilterFluids(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT, Side.INSERT);
         helper.setBlock(new BlockPos(1, 1, 2), Blocks.WATER_CAULDRON.defaultBlockState().setValue(LayeredCauldronBlock.LEVEL, 3));
         helper.setBlock(new BlockPos(2, 1, 2), Blocks.CAULDRON);
         helper.setBlock(new BlockPos(3, 1, 2), Blocks.CAULDRON);
-        helper.getBlockEntity(new BlockPos(1, 1, 1), PipeBlockEntity.class).upgrades
+        helper.<PipeBlockEntity>getBlockEntity(new BlockPos(1, 1, 1)).upgrades
                 .setItem(Direction.SOUTH.ordinal() * PipeBlockEntity.UPGRADES_PER_SIDE + 1, new ItemStack(ModItems.FLUID_UPGRADE.get()));
-        helper.getBlockEntity(new BlockPos(2, 1, 1), PipeBlockEntity.class).getFilter(Direction.SOUTH, true).set(0, tagFilter("minecraft:water"));
+        helper.<PipeBlockEntity>getBlockEntity(new BlockPos(2, 1, 1)).getFilter(Direction.SOUTH, true).set(0, tagFilter("minecraft:water"));
         helper.onEachTick(() -> helper.assertBlockPresent(Blocks.CAULDRON, new BlockPos(2, 1, 2)));
         helper.succeedWhen(() -> helper.assertBlockPresent(Blocks.WATER_CAULDRON, new BlockPos(3, 1, 2)));
     }
 
     // Copying an extract connection onto an insert one brings the mode, settings and filter along.
-    private static void configuratorCopyPaste(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void configuratorCopyPaste(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT);
-        PipeBlockEntity from = helper.getBlockEntity(new BlockPos(1, 1, 1), PipeBlockEntity.class);
-        PipeBlockEntity to = helper.getBlockEntity(new BlockPos(2, 1, 1), PipeBlockEntity.class);
+        PipeBlockEntity from = helper.<PipeBlockEntity>getBlockEntity(new BlockPos(1, 1, 1));
+        PipeBlockEntity to = helper.<PipeBlockEntity>getBlockEntity(new BlockPos(2, 1, 1));
         from.setExtractChannel(Direction.SOUTH, 5);
         from.setDistribution(Direction.SOUTH, PipeBlockEntity.Distribution.FURTHEST);
         from.changeSpeed(Direction.SOUTH, 20);
@@ -523,10 +433,11 @@ public class ModGameTests {
     }
 
     // Switching off the side between two pipes splits them on both ends, switching it back on reconnects them.
-    private static void configuratorDisable(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void configuratorDisable(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT);
         BlockPos first = new BlockPos(1, 1, 1), second = new BlockPos(2, 1, 1);
-        PipeBlockEntity be = helper.getBlockEntity(first, PipeBlockEntity.class);
+        PipeBlockEntity be = helper.<PipeBlockEntity>getBlockEntity(first);
         PipeBlock block = (PipeBlock) be.getBlockState().getBlock();
         block.toggleSide(helper.getLevel(), helper.absolutePos(first), Direction.EAST, be);
         helper.assertTrue(helper.getBlockState(first).getValue(PipeBlock.SIDES.get(Direction.EAST)) == Side.NONE, "disabled side should drop its arm");
@@ -547,10 +458,11 @@ public class ModGameTests {
 
     // Dismantling removes the pipe and hands it back with its upgrade, the pipe joins the existing stack of pipes in the
     // main inventory before taking a free hotbar slot.
-    private static void configuratorDismantle(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void configuratorDismantle(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT);
         BlockPos pos = new BlockPos(1, 1, 1);
-        PipeBlockEntity be = helper.getBlockEntity(pos, PipeBlockEntity.class);
+        PipeBlockEntity be = helper.<PipeBlockEntity>getBlockEntity(pos);
         be.upgrades.setItem(Direction.SOUTH.ordinal() * PipeBlockEntity.UPGRADES_PER_SIDE, new ItemStack(ModItems.TIER_UPGRADES.getFirst().get()));
         Player player = helper.makeMockPlayer(GameType.SURVIVAL);
         player.getInventory().setItem(20, new ItemStack(ModBlocks.PIPE.get(), 5));
@@ -562,8 +474,27 @@ public class ModGameTests {
         // With a full inventory the pipe drops where it was.
         helper.setBlock(pos, ModBlocks.PIPE.get());
         for (int i = 0; i < 36; i++) player.getInventory().setItem(i, new ItemStack(Items.DIRT, 64));
-        PipeBlock.dismantle(player, helper.getLevel(), helper.absolutePos(pos), helper.getBlockState(pos), helper.getBlockEntity(pos, PipeBlockEntity.class));
+        PipeBlock.dismantle(player, helper.getLevel(), helper.absolutePos(pos), helper.getBlockState(pos), helper.<PipeBlockEntity>getBlockEntity(pos));
         helper.assertItemEntityPresent(ModBlocks.PIPE.get().asItem(), pos, 1);
+        helper.succeed();
+    }
+
+    // The part each side of the pipe model uses: stripes continue a straight run of plain pipe, everything else
+    // without an arm gets the box joint, arms and connections use their own part.
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void modelParts(GameTestHelper helper) {
+        BlockState lone = ModBlocks.PIPE.get().defaultBlockState();
+        BlockState straight = lone.setValue(PipeBlock.SIDES.get(Direction.EAST), Side.PIPE).setValue(PipeBlock.SIDES.get(Direction.WEST), Side.PIPE);
+        BlockState branch = straight.setValue(PipeBlock.SIDES.get(Direction.NORTH), Side.EXTRACT);
+        helper.assertTrue(PipeBlock.modelPart(lone, Direction.UP).equals("core_box"), "a lone pipe shows the box");
+        helper.assertTrue(PipeBlock.modelPart(straight, Direction.UP).equals("core_u"), "top of an east-west run runs along u");
+        helper.assertTrue(PipeBlock.modelPart(straight, Direction.NORTH).equals("core_u"), "front of an east-west run runs along u");
+        helper.assertTrue(PipeBlock.modelPart(straight.setValue(PipeBlock.SIDES.get(Direction.EAST), Side.NONE)
+                .setValue(PipeBlock.SIDES.get(Direction.WEST), Side.NONE).setValue(PipeBlock.SIDES.get(Direction.UP), Side.PIPE)
+                .setValue(PipeBlock.SIDES.get(Direction.DOWN), Side.PIPE), Direction.NORTH).equals("core_v"), "front of a vertical run runs along v");
+        helper.assertTrue(PipeBlock.modelPart(branch, Direction.UP).equals("core_box"), "a connection breaks the straight run");
+        helper.assertTrue(PipeBlock.modelPart(branch, Direction.NORTH).equals("arm_extract"), "connections use their mode's part");
+        helper.assertTrue(PipeBlock.modelPart(branch, Direction.EAST).equals("arm"), "pipe sides use the arm");
         helper.succeed();
     }
 }

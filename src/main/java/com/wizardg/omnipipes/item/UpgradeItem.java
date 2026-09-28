@@ -10,11 +10,10 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.LevelReader;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
-import java.util.function.Consumer;
+import java.util.List;
 
 public class UpgradeItem extends Item {
     public UpgradeItem(Properties properties) {
@@ -29,18 +28,18 @@ public class UpgradeItem extends Item {
 
     // What the upgrade does, tiers show their rates from the server config (defaults when no world is loaded).
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display, Consumer<Component> builder, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
         String key = "tooltip.omni_pipes.";
         int tier = ModItems.TIER_UPGRADES.stream().map(t -> t.get()).toList().indexOf(this);
         if (tier >= 0) {
             ServerConfig.Rates rates = ServerConfig.upgradeTiers.get(tier);
-            builder.accept(Component.translatable(key + "speed", value(rates.transferRate())).withStyle(ChatFormatting.GRAY));
-            builder.accept(Component.translatable(key + "amounts", value(rates.itemTransferRate()),
+            tooltip.add(Component.translatable(key + "speed", value(rates.transferRate())).withStyle(ChatFormatting.GRAY));
+            tooltip.add(Component.translatable(key + "amounts", value(rates.itemTransferRate()),
                     ModFormat.decimal(value(rates.fluidTransferRate()) / 1000.0), ModFormat.compact(value(rates.energyTransferRate()))).withStyle(ChatFormatting.GRAY));
         } else {
-            builder.accept(Component.translatable(key + "upgrade." + stack.getItem().builtInRegistryHolder().key().identifier().getPath()).withStyle(ChatFormatting.GRAY));
+            tooltip.add(Component.translatable(key + "upgrade." + stack.getItem().builtInRegistryHolder().key().location().getPath()).withStyle(ChatFormatting.GRAY));
         }
-        builder.accept(Component.translatable(key + "install").withStyle(ChatFormatting.DARK_GRAY));
+        tooltip.add(Component.translatable(key + "install").withStyle(ChatFormatting.DARK_GRAY));
     }
 
     private static int value(ModConfigSpec.ConfigValue<Integer> config) {

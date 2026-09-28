@@ -75,7 +75,7 @@
   "screen.omni_pipes.extract_channel": "Extract Channel: %s",
   "screen.omni_pipes.extract_channel.tooltip": "Only sends to insert sides on the same channel",
   "screen.omni_pipes.filter": "Filter: %s",
-  "screen.omni_pipes.filter_slot.tooltip": "Click with an item to add it to the filter (a bucket or tank filters its fluid too), right click to remove",
+  "screen.omni_pipes.filter_slot.tooltip": "Click with an item to filter it, right click to remove",
   "screen.omni_pipes.insert_channel": "Insert Channel: %s",
   "screen.omni_pipes.insert_channel.tooltip": "Only receives from extract sides on the same channel",
   "screen.omni_pipes.mode": "Mode: %s",

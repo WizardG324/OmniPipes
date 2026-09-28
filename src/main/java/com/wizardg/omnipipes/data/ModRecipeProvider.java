@@ -9,6 +9,9 @@ import net.minecraft.data.PackOutput;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.data.recipes.RecipeProvider;
+import net.minecraft.data.recipes.ShapedRecipeBuilder;
+import net.minecraft.data.recipes.ShapelessRecipeBuilder;
+import net.minecraft.world.level.ItemLike;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
@@ -19,28 +22,31 @@ import java.util.concurrent.CompletableFuture;
 
 public class ModRecipeProvider extends RecipeProvider {
 
-    public ModRecipeProvider(HolderLookup.Provider provider, RecipeOutput output) {
-        super(provider, output);
+    private RecipeOutput output;
+
+    public ModRecipeProvider(PackOutput packOutput, CompletableFuture<HolderLookup.Provider> registries) {
+        super(packOutput, registries);
     }
 
-    public static class Runner extends RecipeProvider.Runner {
-        public Runner(PackOutput packOutput, CompletableFuture<HolderLookup.Provider> provider) {
-            super(packOutput, provider);
-        }
+    private static ShapedRecipeBuilder shaped(RecipeCategory category, ItemLike result) {
+        return ShapedRecipeBuilder.shaped(category, result);
+    }
 
-        @Override
-        protected RecipeProvider createRecipeProvider(HolderLookup.Provider provider, RecipeOutput recipeOutput) {
-            return new ModRecipeProvider(provider, recipeOutput);
-        }
+    private static ShapedRecipeBuilder shaped(RecipeCategory category, ItemLike result, int count) {
+        return ShapedRecipeBuilder.shaped(category, result, count);
+    }
 
-        @Override
-        public String getName() {
-            return OmniPipes.MODID + " Recipes";
-        }
+    private static ShapelessRecipeBuilder shapeless(RecipeCategory category, ItemLike result, int count) {
+        return ShapelessRecipeBuilder.shapeless(category, result, count);
+    }
+
+    private static Ingredient tag(TagKey<Item> tag) {
+        return Ingredient.of(tag);
     }
 
     @Override
-    protected void buildRecipes() {
+    protected void buildRecipes(RecipeOutput output) {
+        this.output = output;
         //Pipe
         shaped(RecipeCategory.REDSTONE, ModBlocks.PIPE.get(), 16)
                 .pattern("IDI")
@@ -132,7 +138,8 @@ public class ModRecipeProvider extends RecipeProvider {
     }
 
     // Corners of the tier's material, redstone on the edges, previous tier in the middle.
-    private void tierUpgrade(int tier, Ingredient corner, TagKey<Item> redstone) {        Item previous = ModItems.TIER_UPGRADES.get(tier - 1).get();
+    private void tierUpgrade(int tier, Ingredient corner, TagKey<Item> redstone) {
+        Item previous = ModItems.TIER_UPGRADES.get(tier - 1).get();
         shaped(RecipeCategory.MISC, ModItems.TIER_UPGRADES.get(tier).get())
                 .pattern("CRC").pattern("RUR").pattern("CRC")
                 .define('C', corner).define('R', redstone).define('U', previous)

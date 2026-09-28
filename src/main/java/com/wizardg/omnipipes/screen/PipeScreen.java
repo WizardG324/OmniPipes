@@ -10,18 +10,15 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.tags.TagKey;
-import net.minecraft.util.Util;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.Util;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.DyeColor;
@@ -29,8 +26,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluid;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
-import org.jspecify.annotations.Nullable;
+import net.neoforged.neoforge.network.PacketDistributor;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,7 +35,7 @@ import java.util.Locale;
 import java.util.function.Supplier;
 
 public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
-    private static final Identifier TEXTURE = Identifier.fromNamespaceAndPath(OmniPipes.MODID, "textures/gui/pipe.png");
+    private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(OmniPipes.MODID, "textures/gui/pipe.png");
     private static final int STRIP_U = 180; // upgrade strip's spot in the texture
     private static final int STRIP_WIDTH = 26;
     private static final int STRIP_HEIGHT = 86;
@@ -52,7 +49,22 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     private boolean shownInsert;
 
     public PipeScreen(PipeMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title, 176, PipeMenu.PANEL_HEIGHT);
+        super(menu, inventory, title);
+        imageWidth = 176;
+        imageHeight = PipeMenu.PANEL_HEIGHT;
+        inventoryLabelY = imageHeight - 94;
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.render(graphics, mouseX, mouseY, partialTick);
+        // Tooltips are raised above REI's drag highlight (z 500).
+        graphics.pose().pushPose();
+        graphics.pose().translate(0, 0, 200);
+        renderTooltip(graphics, mouseX, mouseY);
+        for (CycleButton button : buttons)
+            if (button.isHovered() && button.tip != null) graphics.renderTooltip(font, font.split(button.tip, 170), mouseX, mouseY);
+        graphics.pose().popPose();
     }
 
     // The filter and channel buttons depend on the mode and the shown filter, so both rebuild the widgets.
@@ -142,15 +154,14 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             };
             if (button.setting == PipeMenu.MODE || button.setting == PipeMenu.REDSTONE || button.setting == PipeMenu.DISTRIBUTION || isChannel(button.setting))
                 tooltip.append("\n").append(Component.translatable("screen.omni_pipes.cycle_hint").withStyle(ChatFormatting.GRAY));
-            button.setTooltip(Tooltip.create(tooltip));
+            button.tip = tooltip;
         }
     }
 
     @Override
-    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        super.extractBackground(graphics, mouseX, mouseY, partialTick);
-        graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, leftPos, topPos, 0, 0, imageWidth, imageHeight, 256, 256);
-        graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, leftPos + PipeMenu.STRIP_X, topPos, STRIP_U, 0, STRIP_WIDTH, STRIP_HEIGHT, 256, 256);
+    protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
+        graphics.blit(TEXTURE, leftPos, topPos, 0, 0, imageWidth, imageHeight);
+        graphics.blit(TEXTURE, leftPos + PipeMenu.STRIP_X, topPos, STRIP_U, 0, STRIP_WIDTH, STRIP_HEIGHT);
 
         // Channel color next to the channel button.
         int x = leftPos + 112;
@@ -161,37 +172,43 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
 
     // Empty filter slots explain themselves, filled ones show the item's own tooltip.
     @Override
-    protected void extractTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        super.extractTooltip(graphics, mouseX, mouseY);
+    protected void renderTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        super.renderTooltip(graphics, mouseX, mouseY);
         if (!menu.getCarried().isEmpty() || hoveredSlot == null || hoveredSlot.hasItem()) return;
         if (PipeMenu.isFilterSlot(hoveredSlot))
-            graphics.setTooltipForNextFrame(font, Component.translatable("screen.omni_pipes.filter_slot.tooltip"), mouseX, mouseY);
+            graphics.renderTooltip(font, Component.translatable("screen.omni_pipes.filter_slot.tooltip"), mouseX, mouseY);
         TagKey<Item> accepts = PipeMenu.upgradeSlotAccepts(hoveredSlot);
         if (accepts != null) {
             String key = accepts == ModTags.Items.TIER_UPGRADES ? "screen.omni_pipes.slot.tier" : "screen.omni_pipes.slot.type";
-            graphics.setTooltipForNextFrame(font, List.of(Component.translatable(key).getVisualOrderText(),
-                    Component.translatable(key + ".tooltip").withStyle(ChatFormatting.GRAY).getVisualOrderText()), mouseX, mouseY);
+            graphics.renderComponentTooltip(font, List.of(Component.translatable(key),
+                    Component.translatable(key + ".tooltip").withStyle(ChatFormatting.GRAY)), mouseX, mouseY);
         }
     }
 
     // Filled filter slots show their stock amount like a stack count.
     @Override
-    protected void extractSlot(GuiGraphicsExtractor graphics, Slot slot, int mouseX, int mouseY) {
-        super.extractSlot(graphics, slot, mouseX, mouseY);
+    protected void renderSlot(GuiGraphics graphics, Slot slot) {
+        super.renderSlot(graphics, slot);
+        // Drawn above the item, which sits at z 250.
+        graphics.pose().pushPose();
+        graphics.pose().translate(0, 0, 300);
         // Empty upgrade slots show a faded icon of what fits, cycling through every upgrade in the slot's tag.
         TagKey<Item> accepts = PipeMenu.upgradeSlotAccepts(slot);
         if (accepts != null && !slot.hasItem()) {
-            List<Item> fits = BuiltInRegistries.ITEM.get(accepts).map(set -> set.stream().map(Holder::value).toList()).orElse(List.of());
+            List<Item> fits = BuiltInRegistries.ITEM.getTag(accepts).map(set -> set.stream().map(Holder::value).toList()).orElse(List.of());
             if (!fits.isEmpty()) {
-                graphics.item(new ItemStack(fits.get((int) (Util.getMillis() / 1000 % fits.size()))), slot.x, slot.y);
+                graphics.pose().translate(0, 0, -200);
+                graphics.renderItem(new ItemStack(fits.get((int) (Util.getMillis() / 1000 % fits.size()))), slot.x, slot.y);
+                graphics.pose().translate(0, 0, 200);
                 graphics.fill(slot.x, slot.y, slot.x + 16, slot.y + 16, 0xB08B8B8B);
             }
         }
-        if (!PipeMenu.isFilterSlot(slot) || !slot.hasItem()) return;
-        int amount = menu.amount(slot.getContainerSlot());
-        if (amount <= 0) return;
-        String text = amount < 1000 ? String.valueOf(amount) : String.format(Locale.ROOT, "%.1fk", amount / 1000.0);
-        graphics.text(font, text, slot.x + 17 - font.width(text), slot.y + 9, 0xFFFFFFFF, true);
+        int amount = PipeMenu.isFilterSlot(slot) && slot.hasItem() ? menu.amount(slot.getContainerSlot()) : 0;
+        if (amount > 0) {
+            String text = amount < 1000 ? String.valueOf(amount) : String.format(Locale.ROOT, "%.1fk", amount / 1000.0);
+            graphics.drawString(font, text, slot.x + 17 - font.width(text), slot.y + 9, 0xFFFFFFFF, true);
+        }
+        graphics.pose().popPose();
     }
 
     // Filter slot tooltips add the amount and what it does, on top of the item's own tooltip.
@@ -228,7 +245,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     }
 
     public void dropIntoFilter(Slot slot, ItemStack stack) {
-        if (!stack.isEmpty()) ClientPacketDistributor.sendToServer(new SetFilterPayload(menu.containerId, slot.getContainerSlot(), stack.copyWithCount(1)));
+        if (!stack.isEmpty()) PacketDistributor.sendToServer(new SetFilterPayload(menu.containerId, slot.getContainerSlot(), stack.copyWithCount(1)));
     }
 
     // Fluids become their bucket, since a bucket entry filters its fluid.
@@ -241,7 +258,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (scrollY != 0 && hoveredSlot != null && PipeMenu.isFilterSlot(hoveredSlot) && hoveredSlot.hasItem()) {
             minecraft.gameMode.handleInventoryButtonClick(menu.containerId,
-                    PipeMenu.amountButtonId(hoveredSlot.getContainerSlot(), scrollY > 0, minecraft.hasShiftDown()));
+                    PipeMenu.amountButtonId(hoveredSlot.getContainerSlot(), scrollY > 0, Screen.hasShiftDown()));
             return true;
         }
         double x = mouseX - leftPos;
@@ -255,11 +272,11 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
 
     // Clicks on the upgrade strip and the buttons left of the panel count as inside, otherwise vanilla would drop the carried item.
     @Override
-    protected boolean hasClickedOutside(double mouseX, double mouseY, int left, int top) {
+    protected boolean hasClickedOutside(double mouseX, double mouseY, int left, int top, int mouseButton) {
         boolean onStrip = mouseX >= left + PipeMenu.STRIP_X && mouseX < left + PipeMenu.STRIP_X + STRIP_WIDTH
                 && mouseY >= top && mouseY < top + STRIP_HEIGHT;
         boolean onButton = buttons.stream().anyMatch(b -> b.isMouseOver(mouseX, mouseY));
-        return !onStrip && !onButton && super.hasClickedOutside(mouseX, mouseY, left, top);
+        return !onStrip && !onButton && super.hasClickedOutside(mouseX, mouseY, left, top, mouseButton);
     }
 
     private void click(int setting, boolean forward) {
@@ -273,22 +290,26 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         }
 
         @Override
-        public void onClick(MouseButtonEvent event, boolean doubleClick) {
-            click(minecraft.hasShiftDown() ? PipeMenu.SPEED_BY_TEN : PipeMenu.SPEED, event.button() == 1);
+        public void onClick(double mouseX, double mouseY, int button) {
+            click(Screen.hasShiftDown() ? PipeMenu.SPEED_BY_TEN : PipeMenu.SPEED, button == 1);
         }
 
         @Override
-        protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-            super.extractContents(graphics, mouseX, mouseY, a);
+        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            super.renderWidget(graphics, mouseX, mouseY, partialTick);
             String ticks = String.valueOf(menu.speed());
-            graphics.text(font, ticks, getX() + 19 - font.width(ticks), getY() + 11, 0xFFFFFFFF, true);
+            graphics.pose().pushPose();
+            graphics.pose().translate(0, 0, 200); // above the sugar icon
+            graphics.drawString(font, ticks, getX() + 19 - font.width(ticks), getY() + 11, 0xFFFFFFFF, true);
+            graphics.pose().popPose();
         }
     }
 
     // Left click steps forward, right click steps back. Can show an item icon, then the label sits after it.
-    private class CycleButton extends Button.Plain {
+    private class CycleButton extends Button {
         final int setting;
         private final @Nullable Supplier<ItemStack> icon;
+        @Nullable Component tip; // drawn by the screen with the other tooltips
 
         CycleButton(int setting, int x, int y, int width, @Nullable Supplier<ItemStack> icon) {
             super(leftPos + x, topPos + y, width, 20, Component.empty(), b -> click(setting, true), DEFAULT_NARRATION);
@@ -297,25 +318,21 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         }
 
         @Override
-        protected boolean isValidClickButton(MouseButtonInfo buttonInfo) {
-            return buttonInfo.button() == 0 || buttonInfo.button() == 1;
+        protected boolean isValidClickButton(int button) {
+            return button == 0 || button == 1;
         }
 
         @Override
-        public void onClick(MouseButtonEvent event, boolean doubleClick) {
-            click(setting, event.button() == 0);
+        public void onClick(double mouseX, double mouseY, int button) {
+            click(setting, button == 0);
         }
 
         @Override
-        protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-            if (icon == null) {
-                super.extractContents(graphics, mouseX, mouseY, a);
-                return;
-            }
-            extractDefaultSprite(graphics);
+        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            super.renderWidget(graphics, mouseX, mouseY, partialTick); // icon buttons have no text, so this is just the sprite
+            if (icon == null) return;
             ItemStack stack = icon.get();
-            graphics.item(stack, getX() + 2, getY() + (stack.is(Items.ENDER_PEARL) ? 1 : 2)); // the pearl sprite sits low
-            graphics.text(font, getMessage(), getX() + 20, getY() + 6, 0xFFFFFFFF, true);
+            graphics.renderItem(stack, getX() + 2, getY() + (stack.is(Items.ENDER_PEARL) ? 1 : 2)); // the pearl sprite sits low
         }
     }
 }

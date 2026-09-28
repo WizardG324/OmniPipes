@@ -3,9 +3,15 @@
   "category": "misc",
   "group": "omni_pipes_upgrade",
   "key": {
-    "C": "#c:ingots/gold",
-    "R": "#c:dusts/redstone",
-    "U": "omni_pipes:tier_1_upgrade"
+    "C": {
+      "tag": "c:ingots/gold"
+    },
+    "R": {
+      "tag": "c:dusts/redstone"
+    },
+    "U": {
+      "item": "omni_pipes:tier_1_upgrade"
+    }
   },
   "pattern": [
     "CRC",
@@ -13,6 +19,7 @@
     "CRC"
   ],
   "result": {
+    "count": 1,
     "id": "omni_pipes:tier_2_upgrade"
   }
 }

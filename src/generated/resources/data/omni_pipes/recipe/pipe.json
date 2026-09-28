@@ -3,10 +3,18 @@
   "category": "redstone",
   "group": "omni_pipes",
   "key": {
-    "B": "#c:storage_blocks/redstone",
-    "D": "#c:dusts/redstone",
-    "I": "#c:ingots/iron",
-    "X": "#c:storage_blocks/iron"
+    "B": {
+      "tag": "c:storage_blocks/redstone"
+    },
+    "D": {
+      "tag": "c:dusts/redstone"
+    },
+    "I": {
+      "tag": "c:ingots/iron"
+    },
+    "X": {
+      "tag": "c:storage_blocks/iron"
+    }
   },
   "pattern": [
     "IDI",

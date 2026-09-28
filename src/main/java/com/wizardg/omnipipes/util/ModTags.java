@@ -1,7 +1,7 @@
 package com.wizardg.omnipipes.util;
 
 import com.wizardg.omnipipes.OmniPipes;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
@@ -15,7 +15,7 @@ public class ModTags {
         public static final TagKey<Item> TYPE_UPGRADES = tag("type_upgrades");
 
         private static TagKey<Item> tag(String name) {
-            return ItemTags.create(Identifier.fromNamespaceAndPath(OmniPipes.MODID, name));
+            return ItemTags.create(ResourceLocation.fromNamespaceAndPath(OmniPipes.MODID, name));
         }
     }
 }

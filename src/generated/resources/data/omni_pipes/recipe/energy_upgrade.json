@@ -3,8 +3,12 @@
   "category": "misc",
   "group": "omni_pipes_upgrade",
   "key": {
-    "I": "#c:ingots/iron",
-    "R": "#c:storage_blocks/redstone"
+    "I": {
+      "tag": "c:ingots/iron"
+    },
+    "R": {
+      "tag": "c:storage_blocks/redstone"
+    }
   },
   "pattern": [
     "III",
@@ -12,6 +16,7 @@
     "III"
   ],
   "result": {
+    "count": 1,
     "id": "omni_pipes:energy_upgrade"
   }
 }

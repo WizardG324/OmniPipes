@@ -9,7 +9,7 @@ import mezz.jei.api.gui.handlers.IGuiContainerHandler;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.registration.IGuiHandlerRegistration;
 import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
 
@@ -19,8 +19,8 @@ import java.util.List;
 @JeiPlugin
 public class ModJeiPlugin implements IModPlugin {
     @Override
-    public Identifier getPluginUid() {
-        return Identifier.fromNamespaceAndPath(OmniPipes.MODID, "jei_plugin");
+    public ResourceLocation getPluginUid() {
+        return ResourceLocation.fromNamespaceAndPath(OmniPipes.MODID, "jei_plugin");
     }
 
     @Override

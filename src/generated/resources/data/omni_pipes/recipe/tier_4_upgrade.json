@@ -3,10 +3,18 @@
   "category": "misc",
   "group": "omni_pipes_upgrade",
   "key": {
-    "C": "minecraft:netherite_scrap",
-    "G": "#c:ingots/gold",
-    "R": "#c:storage_blocks/redstone",
-    "U": "omni_pipes:tier_3_upgrade"
+    "C": {
+      "item": "minecraft:netherite_scrap"
+    },
+    "G": {
+      "tag": "c:ingots/gold"
+    },
+    "R": {
+      "tag": "c:storage_blocks/redstone"
+    },
+    "U": {
+      "item": "omni_pipes:tier_3_upgrade"
+    }
   },
   "pattern": [
     "CGC",
@@ -14,6 +22,7 @@
     "CGC"
   ],
   "result": {
+    "count": 1,
     "id": "omni_pipes:tier_4_upgrade"
   }
 }

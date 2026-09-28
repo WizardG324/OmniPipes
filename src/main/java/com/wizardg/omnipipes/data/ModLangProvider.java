@@ -99,7 +99,7 @@ public class ModLangProvider extends LanguageProvider {
         add("screen.omni_pipes.components.match.tooltip", "Items must match exactly, including enchantments, names and other data");
         add("screen.omni_pipes.components.ignore", "Ignore Components");
         add("screen.omni_pipes.components.ignore.tooltip", "Only the item type has to match");
-        add("screen.omni_pipes.filter_slot.tooltip", "Click with an item to add it to the filter (a bucket or tank filters its fluid too), right click to remove");
+        add("screen.omni_pipes.filter_slot.tooltip", "Click with an item to filter it, right click to remove");
         add("screen.omni_pipes.amount.none", "No amount set, moves any number");
         add("screen.omni_pipes.amount.extract", "Moves up to %s at a time");
         add("screen.omni_pipes.amount.insert", "Fills the target up to %s");

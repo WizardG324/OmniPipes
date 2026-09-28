@@ -16,14 +16,14 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.SimpleContainerData;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 // Settings for one side of a pipe. Buttons go through vanilla's clickMenuButton, filter slots through vanilla's
 // slot clicks, and values sync through ContainerData, so no custom packets are needed.
@@ -231,12 +231,12 @@ public class PipeMenu extends AbstractContainerMenu {
 
     // Filter slots: clicking with an item sets a copy of it, right click clears, nothing is ever taken or placed.
     @Override
-    public void clicked(int slotIndex, int buttonNum, ContainerInput input, Player player) {
+    public void clicked(int slotIndex, int buttonNum, ClickType input, Player player) {
         if (slotIndex < GHOST_START || slotIndex >= slots.size()) {
             super.clicked(slotIndex, buttonNum, input, player);
             return;
         }
-        if (be == null || input != ContainerInput.PICKUP) return;
+        if (be == null || input != ClickType.PICKUP) return;
         int slot = slotIndex - GHOST_START;
         if (buttonNum == 1) {
             filter().remove(scroll * GRID_COLS + slot);
@@ -271,7 +271,7 @@ public class PipeMenu extends AbstractContainerMenu {
     @Override
     public boolean stillValid(Player player) {
         BlockState state = player.level().getBlockState(pos);
-        return player.isWithinBlockInteractionRange(pos, 4.0)
+        return player.canInteractWithBlock(pos, 4.0)
                 && state.getBlock() instanceof PipeBlock
                 && PipeBlock.isPort(state.getValue(PipeBlock.SIDES.get(side)));
     }

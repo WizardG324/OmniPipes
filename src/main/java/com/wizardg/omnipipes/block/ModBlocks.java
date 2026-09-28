@@ -15,12 +15,13 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
-import java.util.function.UnaryOperator;
+import java.util.function.Supplier;
 
 public class ModBlocks {
     public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(OmniPipes.MODID);
 
-    private static final UnaryOperator<BlockBehaviour.Properties> PIPE_PROPERTIES = p -> p.strength(0.5f).sound(SoundType.METAL).noOcclusion();
+    private static final Supplier<BlockBehaviour.Properties> PIPE_PROPERTIES =
+            () -> BlockBehaviour.Properties.of().strength(0.5f).sound(SoundType.METAL).noOcclusion();
 
     public static final DeferredBlock<PipeBlock> PIPE = registerBlock("pipe", PipeBlock::new, PIPE_PROPERTIES);
     public static final Map<DyeColor, DeferredBlock<PipeBlock>> COLORED_PIPES = new EnumMap<>(DyeColor.class);
@@ -35,8 +36,8 @@ public class ModBlocks {
     }
 
     private static <T extends Block> DeferredBlock<T> registerBlock(String name, Function<BlockBehaviour.Properties, T> block,
-                                                                    UnaryOperator<BlockBehaviour.Properties> properties) {
-        DeferredBlock<T> toReturn = BLOCKS.registerBlock(name, block, properties);
+                                                                    Supplier<BlockBehaviour.Properties> properties) {
+        DeferredBlock<T> toReturn = BLOCKS.registerBlock(name, block, properties.get());
         ModItems.ITEMS.registerSimpleBlockItem(toReturn);
         return toReturn;
     }

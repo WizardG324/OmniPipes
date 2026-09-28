@@ -9,8 +9,8 @@ import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.Identifier;
-import net.minecraft.util.ARGB;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FastColor;
 import net.minecraft.world.item.DyeColor;
 import snownee.jade.api.BlockAccessor;
 import snownee.jade.api.IBlockComponentProvider;
@@ -28,7 +28,7 @@ import java.util.List;
 // Shows the looked at pipe connection's mode, and for extracting sides what it moves plus its speed and amounts.
 @WailaPlugin
 public class ModJadePlugin implements IWailaPlugin {
-    public static final Identifier PIPE = Identifier.fromNamespaceAndPath(OmniPipes.MODID, "pipe");
+    public static final ResourceLocation PIPE = ResourceLocation.fromNamespaceAndPath(OmniPipes.MODID, "pipe");
 
     @Override
     public void register(IWailaCommonRegistration registration) {
@@ -40,7 +40,7 @@ public class ModJadePlugin implements IWailaPlugin {
         registration.registerBlockComponent(PipeTooltipProvider.INSTANCE, PipeBlock.class);
     }
 
-    // Jade 26.1 needs the server and client halves as separate providers, they share the same uid.
+    // The server and client halves are separate providers that share the same uid.
     public enum PipeDataProvider implements IServerDataProvider<BlockAccessor> {
         INSTANCE;
 
@@ -61,7 +61,7 @@ public class ModJadePlugin implements IWailaPlugin {
         }
 
         @Override
-        public Identifier getUid() {
+        public ResourceLocation getUid() {
             return PIPE;
         }
     }
@@ -77,9 +77,9 @@ public class ModJadePlugin implements IWailaPlugin {
             if (!PipeBlock.isPort(mode)) return;
             // Mode line, "Insert" and "Extract" take their channel's color once the server data for this side is in.
             CompoundTag data = accessor.getServerData();
-            boolean ready = data.getIntOr("side", -1) == dir.ordinal();
-            MutableComponent insert = channelColored("jade.omni_pipes.mode.insert", ready ? data.getIntOr("insert_channel", 0) : -1);
-            MutableComponent extract = channelColored("jade.omni_pipes.mode.extract", ready ? data.getIntOr("extract_channel", 0) : -1);
+            boolean ready = (data.contains("side") ? data.getInt("side") : -1) == dir.ordinal();
+            MutableComponent insert = channelColored("jade.omni_pipes.mode.insert", ready ? data.getInt("insert_channel") : -1);
+            MutableComponent extract = channelColored("jade.omni_pipes.mode.extract", ready ? data.getInt("extract_channel") : -1);
             Component modeName = switch (mode) {
                 case INSERT -> insert;
                 case EXTRACT -> extract;
@@ -88,16 +88,16 @@ public class ModJadePlugin implements IWailaPlugin {
             tooltip.add(Component.translatable("jade.omni_pipes.mode", modeName));
             if (!mode.extracts() || !ready) return;
 
-            int speed = data.getIntOr("speed", 0);
-            if (data.getBooleanOr("creative", false)) {
+            int speed = data.getInt("speed");
+            if (data.getBoolean("creative")) {
                 tooltip.add(Component.translatable("jade.omni_pipes.transferring", Component.translatable("jade.omni_pipes.everything")));
                 tooltip.add(Component.translatable("jade.omni_pipes.stats", speed, Component.translatable("jade.omni_pipes.unlimited")));
                 return;
             }
             List<Component> types = new ArrayList<>(List.of(Component.translatable("jade.omni_pipes.type.items")));
-            List<Component> amounts = new ArrayList<>(List.of(Component.literal(String.valueOf(data.getIntOr("items", 0)))));
-            int fluid = data.getIntOr("fluid", -1);
-            int energy = data.getIntOr("energy", -1);
+            List<Component> amounts = new ArrayList<>(List.of(Component.literal(String.valueOf(data.getInt("items")))));
+            int fluid = (data.contains("fluid") ? data.getInt("fluid") : -1);
+            int energy = (data.contains("energy") ? data.getInt("energy") : -1);
             if (fluid >= 0) {
                 types.add(Component.translatable("jade.omni_pipes.type.fluids"));
                 amounts.add(Component.translatable("jade.omni_pipes.fluid", ModFormat.decimal(fluid / 1000.0)));
@@ -114,7 +114,7 @@ public class ModJadePlugin implements IWailaPlugin {
         private static MutableComponent channelColored(String key, int channel) {
             MutableComponent text = Component.translatable(key);
             if (channel < 0) return text;
-            return text.withColor(ARGB.srgbLerp(0.35f, ARGB.opaque(DyeColor.byId(channel).getTextColor()), 0xFFFFFFFF));
+            return text.withColor(FastColor.ARGB32.lerp(0.35f, FastColor.ARGB32.opaque(DyeColor.byId(channel).getTextColor()), 0xFFFFFFFF));
         }
 
         private static Component join(List<Component> parts) {
@@ -124,7 +124,7 @@ public class ModJadePlugin implements IWailaPlugin {
         }
 
         @Override
-        public Identifier getUid() {
+        public ResourceLocation getUid() {
             return PIPE;
         }
     }

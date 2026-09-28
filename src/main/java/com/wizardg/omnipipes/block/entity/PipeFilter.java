@@ -1,26 +1,27 @@
 package com.wizardg.omnipipes.block.entity;
 
 import com.wizardg.omnipipes.item.TagFilterItem;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
+import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidType;
-import net.neoforged.neoforge.transfer.fluid.FluidResource;
-import net.neoforged.neoforge.transfer.fluid.FluidUtil;
-import net.neoforged.neoforge.transfer.item.ItemResource;
-import net.neoforged.neoforge.transfer.resource.RegisteredResource;
-import org.jspecify.annotations.Nullable;
+import net.neoforged.neoforge.fluids.FluidUtil;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 // Filter for one direction of a pipe side. Starts as an empty blacklist, so everything passes.
 // An entry that holds a fluid (a bucket, a tank) also matches that fluid, its amount then counts in buckets.
@@ -34,8 +35,9 @@ public class PipeFilter {
     public record Entry(ItemStack stack, int amount) {}
 
     private final List<Entry> entries = new ArrayList<>();
-    private record Key(RegisteredResource<?> resource, Entry entry) {}
-    private final Map<Object, List<Key>> byValue = new HashMap<>(); // item or fluid -> entries, so long lists stay fast
+    // Item or fluid -> entries with a sample to compare components against, so long lists stay fast.
+    private record Key(Object sample, Entry entry) {}
+    private final Map<Object, List<Key>> byValue = new HashMap<>();
     private record TagEntry(List<TagKey<Item>> items, List<TagKey<Fluid>> fluids, Entry entry) {}
     private final List<TagEntry> tagEntries = new ArrayList<>(); // checked after the exact entries
     private final Runnable onChange;
@@ -46,33 +48,50 @@ public class PipeFilter {
         this.onChange = onChange;
     }
 
-    public @Nullable Entry match(RegisteredResource<?> resource) {
-        List<Key> same = byValue.get(resource.value());
-        if (same != null) {
-            if (!matchComponents) return same.get(0).entry();
-            var exact = same.stream().filter(k -> k.resource().equals(resource)).findFirst();
-            if (exact.isPresent()) return exact.get().entry();
-        }
-        for (TagEntry tag : tagEntries) {
-            if (resource instanceof ItemResource item && tag.items().stream().anyMatch(item::is)) return tag.entry();
-            if (resource instanceof FluidResource fluid && tag.fluids().stream().anyMatch(fluid::is)) return tag.entry();
-        }
+    public @Nullable Entry match(ItemStack stack) {
+        Entry exact = exact(stack.getItem(), sample -> sample instanceof ItemStack s && ItemStack.isSameItemSameComponents(s, stack));
+        if (exact != null) return exact;
+        for (TagEntry tag : tagEntries)
+            if (tag.items().stream().anyMatch(stack::is)) return tag.entry();
         return null;
     }
 
-    public boolean allows(RegisteredResource<?> resource) {
-        return (match(resource) != null) == whitelist;
+    public @Nullable Entry match(FluidStack fluid) {
+        Entry exact = exact(fluid.getFluid(), sample -> sample instanceof FluidStack f && FluidStack.isSameFluidSameComponents(f, fluid));
+        if (exact != null) return exact;
+        for (TagEntry tag : tagEntries)
+            if (tag.fluids().stream().anyMatch(fluid::is)) return tag.entry();
+        return null;
     }
 
-    // Amount for this resource in its own units (mB for fluids), 0 when there is none (or on a blacklist).
-    public int amount(RegisteredResource<?> resource) {
-        Entry entry = whitelist ? match(resource) : null;
-        if (entry == null) return 0;
-        return resource instanceof FluidResource ? entry.amount() * FluidType.BUCKET_VOLUME : entry.amount();
+    private @Nullable Entry exact(Object value, Predicate<Object> sameComponents) {
+        List<Key> same = byValue.get(value);
+        if (same == null) return null;
+        if (!matchComponents) return same.get(0).entry();
+        return same.stream().filter(k -> sameComponents.test(k.sample())).map(Key::entry).findFirst().orElse(null);
+    }
+
+    public boolean allows(ItemStack stack) {
+        return (match(stack) != null) == whitelist;
+    }
+
+    public boolean allows(FluidStack fluid) {
+        return (match(fluid) != null) == whitelist;
+    }
+
+    // Amounts, 0 when there is none (or on a blacklist). Fluids count in mB.
+    public int amount(ItemStack stack) {
+        Entry entry = whitelist ? match(stack) : null;
+        return entry == null ? 0 : entry.amount();
+    }
+
+    public int amount(FluidStack fluid) {
+        Entry entry = whitelist ? match(fluid) : null;
+        return entry == null ? 0 : entry.amount() * FluidType.BUCKET_VOLUME;
     }
 
     public static boolean holdsFluid(ItemStack stack) {
-        return !FluidUtil.getFirstStackContained(stack).isEmpty();
+        return FluidUtil.getFluidContained(stack).isPresent();
     }
 
     public List<Entry> entries() {
@@ -128,37 +147,42 @@ public class PipeFilter {
         byValue.clear();
         tagEntries.clear();
         for (Entry e : entries) {
-            List<Identifier> tags = TagFilterItem.tags(e.stack());
+            List<ResourceLocation> tags = TagFilterItem.tags(e.stack());
             if (!tags.isEmpty()) {
                 tagEntries.add(new TagEntry(tags.stream().map(id -> TagKey.create(Registries.ITEM, id)).toList(),
                         tags.stream().map(id -> TagKey.create(Registries.FLUID, id)).toList(), e));
                 continue;
             }
-            add(ItemResource.of(e.stack()), e);
-            FluidResource fluid = FluidResource.of(FluidUtil.getFirstStackContained(e.stack()));
-            if (!fluid.isEmpty()) add(fluid, e);
+            add(e.stack().getItem(), e.stack(), e);
+            FluidUtil.getFluidContained(e.stack()).ifPresent(fluid -> add(fluid.getFluid(), fluid, e));
         }
     }
 
-    private void add(RegisteredResource<?> resource, Entry e) {
-        byValue.computeIfAbsent(resource.value(), v -> new ArrayList<>()).add(new Key(resource, e));
+    private void add(Object value, Object sample, Entry e) {
+        byValue.computeIfAbsent(value, v -> new ArrayList<>()).add(new Key(sample, e));
     }
 
-    public void save(ValueOutput output) {
-        output.putBoolean("whitelist", whitelist);
-        output.putBoolean("match_components", matchComponents);
-        var list = output.list("items", ItemStack.CODEC);
-        entries.forEach(e -> list.add(e.stack()));
-        output.putIntArray("amounts", entries.stream().mapToInt(Entry::amount).toArray());
+    public CompoundTag save(HolderLookup.Provider registries) {
+        CompoundTag tag = new CompoundTag();
+        tag.putBoolean("whitelist", whitelist);
+        tag.putBoolean("match_components", matchComponents);
+        ListTag items = new ListTag();
+        entries.forEach(e -> items.add(e.stack().save(registries)));
+        tag.put("items", items);
+        tag.putIntArray("amounts", entries.stream().mapToInt(Entry::amount).toArray());
+        return tag;
     }
 
-    public void load(ValueInput input) {
-        whitelist = input.getBooleanOr("whitelist", false);
-        matchComponents = input.getBooleanOr("match_components", false);
-        int[] amounts = input.getIntArray("amounts").orElse(new int[0]);
+    public void load(CompoundTag tag, HolderLookup.Provider registries) {
+        whitelist = tag.getBoolean("whitelist");
+        matchComponents = tag.getBoolean("match_components");
+        int[] amounts = tag.getIntArray("amounts");
         entries.clear();
-        input.listOrEmpty("items", ItemStack.CODEC).forEach(stack ->
-                entries.add(new Entry(stack, entries.size() < amounts.length ? amounts[entries.size()] : 0)));
+        ListTag items = tag.getList("items", Tag.TAG_COMPOUND);
+        for (int i = 0; i < items.size(); i++) {
+            ItemStack stack = ItemStack.parse(registries, items.get(i)).orElse(ItemStack.EMPTY);
+            if (!stack.isEmpty()) entries.add(new Entry(stack, i < amounts.length ? amounts[i] : 0));
+        }
         rebuildLookup();
     }
 }

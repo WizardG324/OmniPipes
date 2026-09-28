@@ -6,7 +6,7 @@ import net.minecraft.core.component.DataComponentType;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -16,8 +16,8 @@ public class ModDataComponents {
     public static final DeferredRegister.DataComponents COMPONENTS = DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, OmniPipes.MODID);
 
     // Tag ids on a Tag Filter, each one matches the item tag and the fluid tag with that id.
-    public static final DeferredHolder<DataComponentType<?>, DataComponentType<List<Identifier>>> TAGS = COMPONENTS.registerComponentType("tags",
-            builder -> builder.persistent(Identifier.CODEC.listOf()).networkSynchronized(Identifier.STREAM_CODEC.apply(ByteBufCodecs.list())));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<List<ResourceLocation>>> TAGS = COMPONENTS.registerComponentType("tags",
+            builder -> builder.persistent(ResourceLocation.CODEC.listOf()).networkSynchronized(ResourceLocation.STREAM_CODEC.apply(ByteBufCodecs.list())));
 
     // Pipe Configurator: true while in copy/paste mode (configuration is the default), and the settings it copied.
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<Boolean>> COPY_MODE = COMPONENTS.registerComponentType("copy_mode",

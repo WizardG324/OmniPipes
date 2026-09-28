@@ -34,10 +34,15 @@ base {
     archivesName = "${mod_id}-${minecraft_version}"
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(25)
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 neoForge {
     version = project.neo_version
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
 
     runs {
         client {
@@ -58,7 +63,7 @@ neoForge {
         }
 
         data {
-            clientData()
+            data()
             programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
         }
 
@@ -83,14 +88,14 @@ configurations {
 dependencies {
     //JEI
     implementation("curse.maven:jei-238222:${jei_file_id}")
-    //Observable
-    implementation("curse.maven:observable-remake-1639360:${observable_file_id}")
     //Jade
     implementation("curse.maven:jade-324717:${jade_file_id}")
     //REI, compile only so the dev run keeps using JEI
     compileOnly("me.shedaniel:RoughlyEnoughItems-api-neoforge:${rei_version}")
-    //Better Advanced Tooltips
-    implementation("curse.maven:better-advanced-tooltips-1637623:${better_advanced_tooltips_file_id}")
+    compileOnly("dev.architectury:architectury-neoforge:13.0.6") // REI's fluid stacks
+    compileOnly("me.shedaniel.cloth:basic-math:0.6.1") // REI's rectangles
+    //EMI, compile only like REI
+    compileOnly("curse.maven:emi-580555:${emi_file_id}")
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
@@ -98,6 +103,7 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
             minecraft_version      : minecraft_version,
             minecraft_version_range: minecraft_version_range,
             neo_version            : neo_version,
+            loader_version_range   : loader_version_range,
             mod_id                 : mod_id,
             mod_name               : mod_name,
             mod_license            : mod_license,

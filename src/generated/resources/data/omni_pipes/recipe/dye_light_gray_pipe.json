@@ -3,15 +3,33 @@
   "category": "redstone",
   "group": "omni_pipes_dye",
   "ingredients": [
-    "#omni_pipes:pipes",
-    "#omni_pipes:pipes",
-    "#omni_pipes:pipes",
-    "#omni_pipes:pipes",
-    "#omni_pipes:pipes",
-    "#omni_pipes:pipes",
-    "#omni_pipes:pipes",
-    "#omni_pipes:pipes",
-    "#c:dyes/light_gray"
+    {
+      "tag": "omni_pipes:pipes"
+    },
+    {
+      "tag": "omni_pipes:pipes"
+    },
+    {
+      "tag": "omni_pipes:pipes"
+    },
+    {
+      "tag": "omni_pipes:pipes"
+    },
+    {
+      "tag": "omni_pipes:pipes"
+    },
+    {
+      "tag": "omni_pipes:pipes"
+    },
+    {
+      "tag": "omni_pipes:pipes"
+    },
+    {
+      "tag": "omni_pipes:pipes"
+    },
+    {
+      "tag": "c:dyes/light_gray"
+    }
   ],
   "result": {
     "count": 8,

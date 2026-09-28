@@ -162,6 +162,7 @@
   ],
   "textures": {
     "cable": "omni_pipes:block/cable",
+    "connector": "omni_pipes:block/connector",
     "particle": "omni_pipes:block/cable"
   }
 }

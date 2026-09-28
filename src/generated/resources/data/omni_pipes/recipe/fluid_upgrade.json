@@ -3,8 +3,12 @@
   "category": "misc",
   "group": "omni_pipes_upgrade",
   "key": {
-    "B": "minecraft:bucket",
-    "I": "#c:ingots/iron"
+    "B": {
+      "item": "minecraft:bucket"
+    },
+    "I": {
+      "tag": "c:ingots/iron"
+    }
   },
   "pattern": [
     "III",
@@ -12,6 +16,7 @@
     "III"
   ],
   "result": {
+    "count": 1,
     "id": "omni_pipes:fluid_upgrade"
   }
 }

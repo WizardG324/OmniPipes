@@ -243,6 +243,7 @@
       ]
     }
   ],
+  "render_type": "minecraft:cutout",
   "textures": {
     "cable": "omni_pipes:block/cable_dyed",
     "connector": "omni_pipes:block/connector",

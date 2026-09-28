@@ -5,19 +5,18 @@ import com.wizardg.omnipipes.networking.SetTagFilterPayload;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
-import net.neoforged.neoforge.transfer.fluid.FluidUtil;
+import net.neoforged.neoforge.fluids.FluidUtil;
+import net.neoforged.neoforge.network.PacketDistributor;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -33,21 +32,21 @@ public class TagFilterScreen extends Screen {
     private static final int ROWS = TagFilterItem.MAX_TAGS; // the right column shows as many rows as the list can hold
 
     private final InteractionHand hand;
-    private final List<Identifier> tags;
+    private final List<ResourceLocation> tags;
     private EditBox input;
     private String typed = "";
     private Component status = Component.empty();
-    private final List<Identifier> allTags; // every item and fluid tag, for suggestions
+    private final List<ResourceLocation> allTags; // every item and fluid tag, for suggestions
     private final List<Button> offered = new ArrayList<>();
-    private List<Identifier> offeredTags = List.of(); // all of them, the column shows ROWS starting at offerScroll
+    private List<ResourceLocation> offeredTags = List.of(); // all of them, the column shows ROWS starting at offerScroll
     private int offerScroll;
 
-    private TagFilterScreen(InteractionHand hand, List<Identifier> tags) {
+    private TagFilterScreen(InteractionHand hand, List<ResourceLocation> tags) {
         super(Component.translatable("item.omni_pipes.tag_filter"));
         this.hand = hand;
         this.tags = new ArrayList<>(tags);
-        this.allTags = Stream.concat(BuiltInRegistries.ITEM.getTags().map(named -> named.key().location()),
-                BuiltInRegistries.FLUID.getTags().map(named -> named.key().location())).distinct().sorted().toList();
+        this.allTags = Stream.concat(BuiltInRegistries.ITEM.getTagNames().map(TagKey::location),
+                BuiltInRegistries.FLUID.getTagNames().map(TagKey::location)).distinct().sorted().toList();
     }
 
     public static void open(InteractionHand hand) {
@@ -74,7 +73,7 @@ public class TagFilterScreen extends Screen {
 
         // Current tags on the left, click to remove.
         for (int i = 0; i < tags.size(); i++) {
-            Identifier tag = tags.get(i);
+            ResourceLocation tag = tags.get(i);
             addRenderableWidget(Button.builder(Component.literal("#" + tag), b -> {
                 tags.remove(tag);
                 changed();
@@ -89,13 +88,13 @@ public class TagFilterScreen extends Screen {
         offered.forEach(this::removeWidget);
         offered.clear();
         String text = typed.trim().replaceFirst("^#", "").toLowerCase(Locale.ROOT);
-        Stream<Identifier> source = text.isEmpty() ? otherHandTags() : allTags.stream().filter(id -> id.toString().contains(text))
-                .sorted(Comparator.comparing((Identifier id) -> !id.getPath().startsWith(text) && !id.toString().startsWith(text)));
+        Stream<ResourceLocation> source = text.isEmpty() ? otherHandTags() : allTags.stream().filter(id -> id.toString().contains(text))
+                .sorted(Comparator.comparing((ResourceLocation id) -> !id.getPath().startsWith(text) && !id.toString().startsWith(text)));
         offeredTags = source.filter(id -> !tags.contains(id)).distinct().toList();
         offerScroll = Math.clamp(offerScroll, 0, Math.max(0, offeredTags.size() - ROWS));
         int mid = width / 2;
         for (int i = 0; i < Math.min(ROWS, offeredTags.size() - offerScroll); i++) {
-            Identifier tag = offeredTags.get(offerScroll + i);
+            ResourceLocation tag = offeredTags.get(offerScroll + i);
             offered.add(addRenderableWidget(Button.builder(Component.literal("#" + tag), b -> add(tag))
                     .bounds(mid + 5, 76 + i * ROW, 145, 14).tooltip(Tooltip.create(Component.translatable("screen.omni_pipes.tag_filter.pick"))).build()));
         }
@@ -112,22 +111,21 @@ public class TagFilterScreen extends Screen {
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
-    private Stream<Identifier> otherHandTags() {
+    private Stream<ResourceLocation> otherHandTags() {
         ItemStack other = minecraft.player.getItemInHand(hand == InteractionHand.MAIN_HAND ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND);
         if (other.isEmpty()) return Stream.empty();
-        var fluid = FluidUtil.getFirstStackContained(other);
         Stream<TagKey<?>> itemTags = other.getItem().builtInRegistryHolder().tags().map(t -> t);
-        Stream<TagKey<?>> fluidTags = fluid.isEmpty() ? Stream.empty() : fluid.getFluid().builtInRegistryHolder().tags().map(t -> t);
+        Stream<TagKey<?>> fluidTags = FluidUtil.getFluidContained(other).stream().flatMap(f -> f.getFluid().builtInRegistryHolder().tags());
         return Stream.concat(fluidTags, itemTags).map(TagKey::location).sorted();
     }
 
     // "#c:ingots", "c:ingots" or "ingots" (minecraft namespace), null if it isn't a valid id.
-    private static Identifier parse(String text) {
+    private static ResourceLocation parse(String text) {
         String trimmed = text.trim();
-        return Identifier.tryParse(trimmed.startsWith("#") ? trimmed.substring(1) : trimmed);
+        return ResourceLocation.tryParse(trimmed.startsWith("#") ? trimmed.substring(1) : trimmed);
     }
 
-    private Component check(Identifier tag) {
+    private Component check(ResourceLocation tag) {
         if (typed.isBlank()) return Component.empty();
         if (tag == null) return Component.translatable("screen.omni_pipes.tag_filter.invalid").withStyle(ChatFormatting.RED);
         if (tags.contains(tag)) return Component.translatable("screen.omni_pipes.tag_filter.duplicate").withStyle(ChatFormatting.YELLOW);
@@ -136,7 +134,7 @@ public class TagFilterScreen extends Screen {
         return Component.translatable("screen.omni_pipes.tag_filter.valid").withStyle(ChatFormatting.GREEN);
     }
 
-    private void add(Identifier tag) {
+    private void add(ResourceLocation tag) {
         if (tag == null || tags.contains(tag) || tags.size() >= TagFilterItem.MAX_TAGS || !TagFilterItem.tagExists(tag)) return;
         tags.add(tag);
         if (tag.equals(parse(typed))) typed = "";
@@ -144,35 +142,35 @@ public class TagFilterScreen extends Screen {
     }
 
     private void changed() {
-        ClientPacketDistributor.sendToServer(new SetTagFilterPayload(hand == InteractionHand.OFF_HAND, List.copyOf(tags)));
+        PacketDistributor.sendToServer(new SetTagFilterPayload(hand == InteractionHand.OFF_HAND, List.copyOf(tags)));
         status = Component.empty();
         rebuildWidgets();
     }
 
     @Override
-    public boolean keyPressed(KeyEvent event) {
-        if (input.isFocused() && (event.key() == GLFW.GLFW_KEY_ENTER || event.key() == GLFW.GLFW_KEY_KP_ENTER)) {
+    public boolean keyPressed(int key, int scanCode, int modifiers) {
+        if (input.isFocused() && (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER)) {
             add(parse(input.getValue()));
             return true;
         }
-        if (input.isFocused() && event.key() == GLFW.GLFW_KEY_TAB && !typed.isBlank() && !offeredTags.isEmpty()) {
+        if (input.isFocused() && key == GLFW.GLFW_KEY_TAB && !typed.isBlank() && !offeredTags.isEmpty()) {
             input.setValue(offeredTags.getFirst().toString());
             return true;
         }
-        return super.keyPressed(event);
+        return super.keyPressed(key, scanCode, modifiers);
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-        super.extractRenderState(graphics, mouseX, mouseY, a);
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float a) {
+        super.render(graphics, mouseX, mouseY, a);
         int mid = width / 2;
-        graphics.centeredText(font, title, mid, 12, 0xFFFFFFFF);
-        graphics.text(font, status, mid - 150, 52, 0xFFFFFFFF);
-        graphics.text(font, Component.translatable("screen.omni_pipes.tag_filter.list", tags.size(), TagFilterItem.MAX_TAGS), mid - 150, 64, 0xFFA0A0A0);
-        graphics.text(font, Component.translatable(typed.isBlank() ? "screen.omni_pipes.tag_filter.other_hand" : "screen.omni_pipes.tag_filter.matching"),
+        graphics.drawCenteredString(font, title, mid, 12, 0xFFFFFFFF);
+        graphics.drawString(font, status, mid - 150, 52, 0xFFFFFFFF);
+        graphics.drawString(font, Component.translatable("screen.omni_pipes.tag_filter.list", tags.size(), TagFilterItem.MAX_TAGS), mid - 150, 64, 0xFFA0A0A0);
+        graphics.drawString(font, Component.translatable(typed.isBlank() ? "screen.omni_pipes.tag_filter.other_hand" : "screen.omni_pipes.tag_filter.matching"),
                 mid + 5, 64, 0xFFA0A0A0);
         if (offeredTags.size() > ROWS)
-            graphics.text(font, Component.translatable("screen.omni_pipes.tag_filter.scroll", offerScroll + 1, offerScroll + ROWS, offeredTags.size()),
+            graphics.drawString(font, Component.translatable("screen.omni_pipes.tag_filter.scroll", offerScroll + 1, offerScroll + ROWS, offeredTags.size()),
                     mid + 5, 78 + ROWS * ROW, 0xFFA0A0A0);
     }
 

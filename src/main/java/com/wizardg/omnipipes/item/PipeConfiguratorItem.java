@@ -6,16 +6,15 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
 
-import java.util.function.Consumer;
+import java.util.List;
 
 // Copies and pastes connection settings, or switches pipe sides off and on. The pipe block does the work,
 // this item only holds the mode and the copied settings.
@@ -34,15 +33,15 @@ public class PipeConfiguratorItem extends Item {
 
     // Shift + right-click in the air swaps the mode.
     @Override
-    public InteractionResult use(Level level, Player player, InteractionHand hand) {
-        if (!player.isShiftKeyDown()) return InteractionResult.PASS;
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
+        if (!player.isShiftKeyDown()) return InteractionResultHolder.pass(stack);
         if (!level.isClientSide()) {
             boolean copy = !copyMode(stack);
             stack.set(ModDataComponents.COPY_MODE, copy);
-            player.sendOverlayMessage(Component.translatable("tooltip.omni_pipes.configurator.mode", modeName(copy)));
+            player.displayClientMessage(Component.translatable("tooltip.omni_pipes.configurator.mode", modeName(copy)), true);
         }
-        return InteractionResult.SUCCESS;
+        return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
     }
 
     // Lets shift + right-click reach pipes, for copying.
@@ -52,18 +51,18 @@ public class PipeConfiguratorItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display, Consumer<Component> builder, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
         boolean copy = copyMode(stack);
-        builder.accept(Component.translatable("tooltip.omni_pipes.configurator.mode", modeName(copy)).withStyle(ChatFormatting.AQUA));
+        tooltip.add(Component.translatable("tooltip.omni_pipes.configurator.mode", modeName(copy)).withStyle(ChatFormatting.AQUA));
         if (!copy) {
-            builder.accept(Component.translatable("tooltip.omni_pipes.configurator.configure_hint").withStyle(ChatFormatting.GRAY));
-            builder.accept(Component.translatable("tooltip.omni_pipes.configurator.dismantle_hint").withStyle(ChatFormatting.GRAY));
+            tooltip.add(Component.translatable("tooltip.omni_pipes.configurator.configure_hint").withStyle(ChatFormatting.GRAY));
+            tooltip.add(Component.translatable("tooltip.omni_pipes.configurator.dismantle_hint").withStyle(ChatFormatting.GRAY));
         } else {
             CompoundTag copied = stack.get(ModDataComponents.COPIED_SETTINGS);
-            builder.accept(copied == null ? Component.translatable("tooltip.omni_pipes.configurator.empty").withStyle(ChatFormatting.GRAY)
+            tooltip.add(copied == null ? Component.translatable("tooltip.omni_pipes.configurator.empty").withStyle(ChatFormatting.GRAY)
                     : Component.translatable("tooltip.omni_pipes.configurator.saved").withStyle(ChatFormatting.WHITE));
-            builder.accept(Component.translatable("tooltip.omni_pipes.configurator.copy_hint").withStyle(ChatFormatting.GRAY));
+            tooltip.add(Component.translatable("tooltip.omni_pipes.configurator.copy_hint").withStyle(ChatFormatting.GRAY));
         }
-        builder.accept(Component.translatable("tooltip.omni_pipes.configurator.switch_hint").withStyle(ChatFormatting.DARK_GRAY));
+        tooltip.add(Component.translatable("tooltip.omni_pipes.configurator.switch_hint").withStyle(ChatFormatting.DARK_GRAY));
     }
 }
