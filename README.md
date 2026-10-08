@@ -29,6 +29,8 @@ This mod aims to add a one pipe solution to transferring just about anything.
 
 *   Jade (shows the mode, the channel colors, what's being transferred, and speed/amounts)
 *   JEI/EMI/REI (shows recipes in the mod's recipe browser plus dragging items and fluids to filters)
+*   BBL-Rifts (26.1.2 - adds a upgrade to allow transferring of rift energy)
+*   Powah (26.1.2 - allows energizing orbs to connect to pipes)
 *   Suggest different mods that handle their own resource, and I'll take a look
 
 ## Known Issues
