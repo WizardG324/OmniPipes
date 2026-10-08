@@ -2,6 +2,7 @@ package com.wizardg.omnipipes.block;
 
 import com.wizardg.omnipipes.OmniPipes;
 import com.wizardg.omnipipes.block.custom.PipeBlock;
+import com.wizardg.omnipipes.compat.powah.PowahPipeBlock;
 import com.wizardg.omnipipes.item.ModItems;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.block.Block;
@@ -23,13 +24,16 @@ public class ModBlocks {
     private static final Supplier<BlockBehaviour.Properties> PIPE_PROPERTIES =
             () -> BlockBehaviour.Properties.of().strength(0.5f).sound(SoundType.METAL).noOcclusion();
 
-    public static final DeferredBlock<PipeBlock> PIPE = registerBlock("pipe", PipeBlock::new, PIPE_PROPERTIES);
+    // Energizing rods can be placed on pipes when Powah is loaded.
+    private static final Function<BlockBehaviour.Properties, PipeBlock> PIPE_BLOCK = OmniPipes.POWAH_LOADED ? PowahPipeBlock::new : PipeBlock::new;
+
+    public static final DeferredBlock<PipeBlock> PIPE = registerBlock("pipe", PIPE_BLOCK, PIPE_PROPERTIES);
     public static final Map<DyeColor, DeferredBlock<PipeBlock>> COLORED_PIPES = new EnumMap<>(DyeColor.class);
     public static final List<DeferredBlock<PipeBlock>> ALL_PIPES = new ArrayList<>(List.of(PIPE));
 
     static {
         for (DyeColor color : DyeColor.values()) {
-            var pipe = registerBlock(color.getName() + "_pipe", PipeBlock::new, PIPE_PROPERTIES);
+            var pipe = registerBlock(color.getName() + "_pipe", PIPE_BLOCK, PIPE_PROPERTIES);
             COLORED_PIPES.put(color, pipe);
             ALL_PIPES.add(pipe);
         }
