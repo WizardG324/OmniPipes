@@ -39,5 +39,5 @@ This mod aims to add a one pipe solution to transferring just about anything.
 ## Version Support
 
 *   26.1.2 - Supported!
-*   1.21.1 - Planned
+*   1.21.1 - Supported!
 *   1.20.1 - Possibly in the future
