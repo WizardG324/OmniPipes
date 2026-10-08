@@ -128,7 +128,7 @@ public class PipeBlock extends Block implements EntityBlock {
     // New block connections start as INSERT, existing modes are kept.
     // Pipes only connect to the exact same pipe block, so each color is its own network.
     // A side disabled with the configurator, on this pipe or on the neighboring pipe, never connects.
-    private Side sideFor(Level level, BlockPos pos, Direction dir, Side current) {
+    protected Side sideFor(Level level, BlockPos pos, Direction dir, Side current) {
         if (level.getBlockEntity(pos) instanceof PipeBlockEntity be && be.isDisabled(dir)) return Side.NONE;
         BlockPos n = pos.relative(dir);
         Block neighbor = level.getBlockState(n).getBlock();
