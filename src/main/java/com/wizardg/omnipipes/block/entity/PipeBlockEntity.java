@@ -1,7 +1,9 @@
 package com.wizardg.omnipipes.block.entity;
 
+import com.wizardg.omnipipes.OmniPipes;
 import com.wizardg.omnipipes.block.ModBlockEntities;
 import com.wizardg.omnipipes.block.custom.PipeBlock;
+import com.wizardg.omnipipes.compat.rifts.RiftEnergy;
 import com.wizardg.omnipipes.config.ServerConfig;
 import com.wizardg.omnipipes.item.ModItems;
 import com.wizardg.omnipipes.util.ModTags;
@@ -73,8 +75,8 @@ public class PipeBlockEntity extends BlockEntity {
         }
     };
 
-    public record Rates(int ticks, int recheck, int items, int fluid, int energy) {}
-    private static final Rates CREATIVE = new Rates(1, 1, Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    public record Rates(int ticks, int recheck, int items, int fluid, int energy, int rift) {}
+    private static final Rates CREATIVE = new Rates(1, 1, Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE);
 
     /** Continue enums after the last one, to not mess up pre-existing worlds */
     public enum RedstoneMode {
@@ -304,13 +306,17 @@ public class PipeBlockEntity extends BlockEntity {
     public Rates rates(Direction dir) {
         if (isCreative(dir)) return CREATIVE;
         ServerConfig.Rates c = ServerConfig.base;
-        for (int t = 0; t < ModItems.TIER_UPGRADES.size(); t++)
-            if (upgrade(dir, 0).is(ModItems.TIER_UPGRADES.get(t).get())) c = ServerConfig.upgradeTiers.get(t);
+        var rift = ServerConfig.riftBase;
+        for (int t = 0; t < ModItems.TIER_UPGRADES.size(); t++) {
+            if (!upgrade(dir, 0).is(ModItems.TIER_UPGRADES.get(t).get())) continue;
+            c = ServerConfig.upgradeTiers.get(t);
+            rift = ServerConfig.riftTiers.get(t);
+        }
         return new Rates(c.transferRate().get(), ServerConfig.extractRecheckDelay.get(),
-                c.itemTransferRate().get(), c.fluidTransferRate().get(), c.energyTransferRate().get());
+                c.itemTransferRate().get(), c.fluidTransferRate().get(), c.energyTransferRate().get(), rift.get());
     }
 
-    // Items always move, fluids and energy need their type upgrade (or creative).
+    // Items always move, every other type needs its type upgrade (or creative).
     public boolean movesType(Direction dir, Item type) {
         if (isCreative(dir)) return true;
         for (int i = 1; i < UPGRADES_PER_SIDE; i++) if (upgrade(dir, i).is(type)) return true;
@@ -377,17 +383,19 @@ public class PipeBlockEntity extends BlockEntity {
                         (a, b, n, t) -> moveFiltered(a, b, extractFilter, t.filter, n, batches));
             if (be.movesType(dir, ModItems.ENERGY_UPGRADE.get()))
                 moved += push(level, Capabilities.Energy.BLOCK, src, side, dests, rates.energy, (a, b, n, t) -> EnergyHandlerUtil.move(a, b, n, null));
+            if (OmniPipes.RIFTS_LOADED && be.movesType(dir, ModItems.RIFT_UPGRADE.get()))
+                moved += RiftEnergy.push(level, src, side, dests, rates.rift);
             be.failedExtracts[i] = moved > 0 ? 0 : be.failedExtracts[i] + 1;
             boolean pause = ServerConfig.enablePipeOptimizations.get() && be.failedExtracts[i] > ServerConfig.retriesBeforePausing.get();
             be.nextExtract[i] = time + (pause ? rates.recheck : be.getSpeed(dir));
         }
     }
 
-    interface Mover<H> {
+    public interface Mover<H> {
         int move(H from, @Nullable H to, int amount, Target target);
     }
 
-    private static <H> int push(Level level, BlockCapability<H, @Nullable Direction> cap, BlockPos src, Direction side,
+    public static <H> int push(Level level, BlockCapability<H, @Nullable Direction> cap, BlockPos src, Direction side,
                                 List<Target> targets, int amount, Mover<H> mover) {
         H from = level.getCapability(cap, src, side);
         if (from == null) return 0;
@@ -432,7 +440,7 @@ public class PipeBlockEntity extends BlockEntity {
         return total;
     }
 
-    record Target(BlockPos pos, Direction side, int channel, PipeFilter filter) {}
+    public record Target(BlockPos pos, Direction side, int channel, PipeFilter filter) {}
 
     // Cache the network per pipe if big networks lag
     private static List<Target> findTargets(Level level, BlockPos start) {

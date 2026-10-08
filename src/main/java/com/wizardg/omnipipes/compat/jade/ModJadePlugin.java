@@ -56,6 +56,7 @@ public class ModJadePlugin implements IWailaPlugin {
             data.putInt("items", rates.items());
             data.putInt("fluid", be.movesType(dir, ModItems.FLUID_UPGRADE.get()) ? rates.fluid() : -1);
             data.putInt("energy", be.movesType(dir, ModItems.ENERGY_UPGRADE.get()) ? rates.energy() : -1);
+            data.putInt("rift", OmniPipes.RIFTS_LOADED && be.movesType(dir, ModItems.RIFT_UPGRADE.get()) ? rates.rift() : -1);
             data.putInt("insert_channel", be.getInsertChannel(dir));
             data.putInt("extract_channel", be.getExtractChannel(dir));
         }
@@ -98,6 +99,7 @@ public class ModJadePlugin implements IWailaPlugin {
             List<Component> amounts = new ArrayList<>(List.of(Component.literal(String.valueOf(data.getIntOr("items", 0)))));
             int fluid = data.getIntOr("fluid", -1);
             int energy = data.getIntOr("energy", -1);
+            int rift = data.getIntOr("rift", -1);
             if (fluid >= 0) {
                 types.add(Component.translatable("jade.omni_pipes.type.fluids"));
                 amounts.add(Component.translatable("jade.omni_pipes.fluid", ModFormat.decimal(fluid / 1000.0)));
@@ -105,6 +107,10 @@ public class ModJadePlugin implements IWailaPlugin {
             if (energy >= 0) {
                 types.add(Component.translatable("jade.omni_pipes.type.energy"));
                 amounts.add(Component.translatable("jade.omni_pipes.energy", ModFormat.compact(energy)));
+            }
+            if (rift >= 0) {
+                types.add(Component.translatable("jade.omni_pipes.type.rift"));
+                amounts.add(Component.translatable("jade.omni_pipes.rift", ModFormat.compact(rift)));
             }
             tooltip.add(Component.translatable("jade.omni_pipes.transferring", join(types)));
             tooltip.add(Component.translatable("jade.omni_pipes.stats", speed, join(amounts)));

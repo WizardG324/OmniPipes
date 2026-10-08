@@ -65,7 +65,7 @@ public class ModModelProvider extends ModelProvider {
         Identifier dyedItem = pipeModels(blockModels, "_dyed", "cable_dyed");
 
         ModItems.TIER_UPGRADES.forEach(tier -> itemModels.generateFlatItem(tier.get(), ModelTemplates.FLAT_ITEM));
-        for (var upgrade : List.of(ModItems.CREATIVE_UPGRADE, ModItems.FLUID_UPGRADE, ModItems.ENERGY_UPGRADE, ModItems.TAG_FILTER))
+        for (var upgrade : List.of(ModItems.CREATIVE_UPGRADE, ModItems.FLUID_UPGRADE, ModItems.ENERGY_UPGRADE, ModItems.RIFT_UPGRADE, ModItems.TAG_FILTER))
             itemModels.generateFlatItem(upgrade.get(), ModelTemplates.FLAT_ITEM);
         itemModels.generateFlatItem(ModItems.PIPE_CONFIGURATOR.get(), ModelTemplates.FLAT_HANDHELD_ITEM); // held like a tool
 

@@ -23,6 +23,7 @@ public class ModItems {
     // Type upgrades, pipes only move items without any
     public static final DeferredItem<Item> FLUID_UPGRADE = ITEMS.registerItem("fluid_upgrade", UpgradeItem::new, p -> p.stacksTo(16));
     public static final DeferredItem<Item> ENERGY_UPGRADE = ITEMS.registerItem("energy_upgrade", UpgradeItem::new, p -> p.stacksTo(16));
+    public static final DeferredItem<Item> RIFT_UPGRADE = ITEMS.registerItem("rift_upgrade", UpgradeItem::new, p -> p.stacksTo(16)); // BBL Rifts
 
     public static final DeferredItem<PipeConfiguratorItem> PIPE_CONFIGURATOR = ITEMS.registerItem("pipe_configurator", PipeConfiguratorItem::new, p -> p.stacksTo(1));
 

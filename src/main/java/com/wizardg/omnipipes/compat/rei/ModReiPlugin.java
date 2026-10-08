@@ -1,8 +1,11 @@
 package com.wizardg.omnipipes.compat.rei;
 
+import com.wizardg.omnipipes.OmniPipes;
+import com.wizardg.omnipipes.item.ModItems;
 import com.wizardg.omnipipes.screen.PipeScreen;
 import dev.architectury.fluid.FluidStack;
 import me.shedaniel.math.Rectangle;
+import me.shedaniel.rei.api.client.entry.filtering.base.BasicFilteringRule;
 import me.shedaniel.rei.api.client.gui.drag.DraggableStack;
 import me.shedaniel.rei.api.client.gui.drag.DraggableStackVisitor;
 import me.shedaniel.rei.api.client.gui.drag.DraggedAcceptorResult;
@@ -10,17 +13,26 @@ import me.shedaniel.rei.api.client.gui.drag.DraggingContext;
 import me.shedaniel.rei.api.client.plugins.REIClientPlugin;
 import me.shedaniel.rei.api.client.registry.screen.ExclusionZones;
 import me.shedaniel.rei.api.client.registry.screen.ScreenRegistry;
+import me.shedaniel.rei.api.common.entry.EntryStack;
+import me.shedaniel.rei.api.common.util.EntryStacks;
 import me.shedaniel.rei.forge.REIPluginClient;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.List;
 import java.util.stream.Stream;
 
 // Keeps REI clear of the pipe screen's side parts, and lets items and fluids be dragged onto its filter slots.
 @REIPluginClient
 public class ModReiPlugin implements REIClientPlugin {
+    // The Rift Upgrade does nothing without BBL Rifts.
+    @Override
+    public void registerBasicEntryFiltering(BasicFilteringRule<?> rule) {
+        if (!OmniPipes.RIFTS_LOADED) rule.hide(() -> List.<EntryStack<?>>of(EntryStacks.of(ModItems.RIFT_UPGRADE.get())));
+    }
+
     @Override
     public void registerExclusionZones(ExclusionZones zones) {
         zones.register(PipeScreen.class, (PipeScreen screen) -> screen.extraAreas().stream()

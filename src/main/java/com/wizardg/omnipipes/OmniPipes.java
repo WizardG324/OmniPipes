@@ -22,6 +22,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
@@ -32,6 +33,9 @@ import java.util.List;
 public class OmniPipes {
     public static final String MODID = "omni_pipes";
     public static final Logger LOGGER = LogUtils.getLogger();
+
+    public static final boolean POWAH_LOADED = ModList.get().isLoaded("powah");
+    public static final boolean RIFTS_LOADED = ModList.get().isLoaded("rifts");
 
     public OmniPipes(IEventBus modEventBus, ModContainer modContainer) {
         ModBlocks.BLOCKS.register(modEventBus);

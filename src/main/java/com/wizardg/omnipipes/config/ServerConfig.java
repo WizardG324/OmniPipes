@@ -14,6 +14,8 @@ public class ServerConfig {
     public static final ModConfigSpec.ConfigValue<Integer> extractRecheckDelay;
     public static final Rates base;
     public static final List<Rates> upgradeTiers = new ArrayList<>(); // index 0 = tier 1
+    public static final ModConfigSpec.ConfigValue<Integer> riftBase;
+    public static final List<ModConfigSpec.ConfigValue<Integer>> riftTiers = new ArrayList<>(); // index 0 = tier 1
 
     public record Rates(ModConfigSpec.ConfigValue<Integer> transferRate,
                         ModConfigSpec.ConfigValue<Integer> itemTransferRate,
@@ -50,7 +52,22 @@ public class ServerConfig {
         }
 
         BUILDER.pop();
+
+        BUILDER.comment("BBL Rifts settings, used by the Rift Upgrade when BBL Rifts is installed. Sub sections override this for each upgrade").push("rifts");
+        riftBase = riftRate(600);
+        int[] riftDefaults = {18_000, 42_000, 98_000, 152_000};
+        for (int tier = 1; tier <= riftDefaults.length; tier++) {
+            BUILDER.push("upgrade_tier_" + tier);
+            riftTiers.add(riftRate(riftDefaults[tier - 1]));
+            BUILDER.pop();
+        }
+        BUILDER.pop();
+
         SPEC = BUILDER.build();
+    }
+
+    private static ModConfigSpec.ConfigValue<Integer> riftRate(int amount) {
+        return BUILDER.comment("Rift energy moved per transfer.").defineInRange("riftEnergyTransferRate", amount, 1, Integer.MAX_VALUE);
     }
 
     private static Rates rates(int ticks, int items, int fluid, int energy) {

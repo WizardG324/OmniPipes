@@ -1,5 +1,7 @@
 package com.wizardg.omnipipes.block.custom;
 
+import com.wizardg.omnipipes.OmniPipes;
+import com.wizardg.omnipipes.compat.rifts.RiftEnergy;
 import com.mojang.serialization.MapCodec;
 import com.wizardg.omnipipes.block.ModBlockEntities;
 import com.wizardg.omnipipes.block.entity.PipeBlockEntity;
@@ -136,7 +138,8 @@ public class PipeBlock extends Block implements EntityBlock {
         Direction side = dir.getOpposite();
         boolean handler = level.getCapability(Capabilities.Item.BLOCK, n, side) != null
                 || level.getCapability(Capabilities.Fluid.BLOCK, n, side) != null
-                || level.getCapability(Capabilities.Energy.BLOCK, n, side) != null;
+                || level.getCapability(Capabilities.Energy.BLOCK, n, side) != null
+                || OmniPipes.RIFTS_LOADED && RiftEnergy.present(level, n, side);
         if (!handler) return Side.NONE;
         return current == Side.NONE || current == Side.PIPE ? Side.INSERT : current;
     }

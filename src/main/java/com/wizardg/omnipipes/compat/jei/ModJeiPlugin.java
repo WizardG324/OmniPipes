@@ -1,13 +1,16 @@
 package com.wizardg.omnipipes.compat.jei;
 
 import com.wizardg.omnipipes.OmniPipes;
+import com.wizardg.omnipipes.item.ModItems;
 import com.wizardg.omnipipes.screen.PipeScreen;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
+import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.gui.handlers.IGhostIngredientHandler;
 import mezz.jei.api.gui.handlers.IGuiContainerHandler;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.registration.IGuiHandlerRegistration;
+import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
@@ -21,6 +24,13 @@ public class ModJeiPlugin implements IModPlugin {
     @Override
     public Identifier getPluginUid() {
         return Identifier.fromNamespaceAndPath(OmniPipes.MODID, "jei_plugin");
+    }
+
+    // The Rift Upgrade does nothing without BBL Rifts.
+    @Override
+    public void onRuntimeAvailable(IJeiRuntime runtime) {
+        if (!OmniPipes.RIFTS_LOADED)
+            runtime.getIngredientManager().removeIngredientsAtRuntime(VanillaTypes.ITEM_STACK, List.of(new ItemStack(ModItems.RIFT_UPGRADE.get())));
     }
 
     @Override

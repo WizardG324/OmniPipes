@@ -1,5 +1,6 @@
 package com.wizardg.omnipipes.item;
 
+import com.wizardg.omnipipes.OmniPipes;
 import com.wizardg.omnipipes.block.custom.PipeBlock;
 import com.wizardg.omnipipes.config.ServerConfig;
 import com.wizardg.omnipipes.util.ModFormat;
@@ -37,6 +38,8 @@ public class UpgradeItem extends Item {
             builder.accept(Component.translatable(key + "speed", value(rates.transferRate())).withStyle(ChatFormatting.GRAY));
             builder.accept(Component.translatable(key + "amounts", value(rates.itemTransferRate()),
                     ModFormat.decimal(value(rates.fluidTransferRate()) / 1000.0), ModFormat.compact(value(rates.energyTransferRate()))).withStyle(ChatFormatting.GRAY));
+            if (OmniPipes.RIFTS_LOADED)
+                builder.accept(Component.translatable(key + "rift_amount", ModFormat.compact(value(ServerConfig.riftTiers.get(tier)))).withStyle(ChatFormatting.GRAY));
         } else {
             builder.accept(Component.translatable(key + "upgrade." + stack.getItem().builtInRegistryHolder().key().identifier().getPath()).withStyle(ChatFormatting.GRAY));
         }

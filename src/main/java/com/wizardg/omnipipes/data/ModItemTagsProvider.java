@@ -33,6 +33,7 @@ public class ModItemTagsProvider extends ItemTagsProvider {
         tag(ModTags.Items.TIER_UPGRADES).add(ModItems.CREATIVE_UPGRADE.get());
         tag(ModTags.Items.TYPE_UPGRADES)
                 .add(ModItems.FLUID_UPGRADE.get())
-                .add(ModItems.ENERGY_UPGRADE.get());
+                .add(ModItems.ENERGY_UPGRADE.get())
+                .add(ModItems.RIFT_UPGRADE.get());
     }
 }

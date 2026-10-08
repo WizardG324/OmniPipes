@@ -27,6 +27,7 @@ public class ModLangProvider extends LanguageProvider {
         add(ModItems.CREATIVE_UPGRADE.get(), "Creative Upgrade");
         add(ModItems.FLUID_UPGRADE.get(), "Fluid Upgrade");
         add(ModItems.ENERGY_UPGRADE.get(), "Energy Upgrade");
+        add(ModItems.RIFT_UPGRADE.get(), "Rift Upgrade");
 
         //Jade
         add("config.jade.plugin_omni_pipes.pipe", "Pipe Connection");
@@ -38,10 +39,12 @@ public class ModLangProvider extends LanguageProvider {
         add("jade.omni_pipes.type.items", "Items");
         add("jade.omni_pipes.type.fluids", "Fluids");
         add("jade.omni_pipes.type.energy", "Energy");
+        add("jade.omni_pipes.type.rift", "Rift Energy");
         add("jade.omni_pipes.everything", "Everything");
         add("jade.omni_pipes.stats", "Stats: %st / %s");
         add("jade.omni_pipes.fluid", "%sB");
         add("jade.omni_pipes.energy", "%s FE");
+        add("jade.omni_pipes.rift", "%s RE");
         add("jade.omni_pipes.unlimited", "Unlimited");
 
         //Messages
@@ -142,9 +145,11 @@ public class ModLangProvider extends LanguageProvider {
         add("screen.omni_pipes.tag_filter.valid", "Press Enter to add");
         add("tooltip.omni_pipes.speed", "Speed: every %st");
         add("tooltip.omni_pipes.amounts", "Per transfer: %s items, %sB, %s FE");
+        add("tooltip.omni_pipes.rift_amount", "Rift energy per transfer: %s RE");
         add("tooltip.omni_pipes.upgrade.creative_upgrade", "Every tick, unlimited amounts, moves every available type");
         add("tooltip.omni_pipes.upgrade.fluid_upgrade", "Lets a pipe connection extract fluids");
         add("tooltip.omni_pipes.upgrade.energy_upgrade", "Lets a pipe connection extract energy");
+        add("tooltip.omni_pipes.upgrade.rift_upgrade", "Lets a pipe connection extract rift energy from BBL Rifts");
         add("tooltip.omni_pipes.install", "Shift right-click a pipe connection to install");
         add("screen.omni_pipes.amount.fluid", "Also filters the fluid inside, its amount counts in buckets");
         add("screen.omni_pipes.amount.hint", "Scroll to change the amount (shift: by 10), right click to remove");

@@ -89,6 +89,10 @@ dependencies {
     implementation("curse.maven:jade-324717:${jade_file_id}")
     //REI, compile only so the dev run keeps using JEI
     compileOnly("me.shedaniel:RoughlyEnoughItems-api-neoforge:${rei_version}")
+    //BBL Rifts, compile only for its rift energy capability
+    compileOnly("curse.maven:bbl-rifts-1721086:${bbl_rifts_file_id}")
+    //Powah, compile only for its energizing rods
+    compileOnly("curse.maven:powah-rearchitected-633483:${powah_file_id}")
     //Better Advanced Tooltips
     implementation("curse.maven:better-advanced-tooltips-1637623:${better_advanced_tooltips_file_id}")
 }
