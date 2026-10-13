@@ -24,6 +24,8 @@ This mod aims to add a one pipe solution to transferring just about anything.
 *   The ability to keep a set amount stocked in a block, or cap how much is extracted at a time
 *   Fine tunable extract speed in the GUI
 *   The ability to change the default settings for the pipes, as well as the upgrades in the server config
+*   Item tags for modpack makers, letting any item work as a Fluid, Energy, or Custom upgrade
+*   An `/omnipipes` command for server staff to find laggy or stuck pipe networks
 
 ## Compatibility
 
