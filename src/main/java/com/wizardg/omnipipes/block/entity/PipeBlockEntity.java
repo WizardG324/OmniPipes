@@ -3,6 +3,7 @@ package com.wizardg.omnipipes.block.entity;
 import com.wizardg.omnipipes.OmniPipes;
 import com.wizardg.omnipipes.block.ModBlockEntities;
 import com.wizardg.omnipipes.block.custom.PipeBlock;
+import com.wizardg.omnipipes.command.PipesCommand;
 import com.wizardg.omnipipes.compat.rifts.RiftEnergy;
 import com.wizardg.omnipipes.config.ServerConfig;
 import com.wizardg.omnipipes.item.ModItems;
@@ -10,6 +11,7 @@ import com.wizardg.omnipipes.util.ModTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.level.storage.TagValueOutput;
@@ -20,6 +22,7 @@ import net.minecraft.world.Containers;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -28,9 +31,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.capabilities.BlockCapability;
+import net.neoforged.neoforge.capabilities.BlockCapabilityCache;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.transfer.ResourceHandler;
-import net.neoforged.neoforge.transfer.ResourceHandlerUtil;
+import net.neoforged.neoforge.transfer.transaction.Transaction;
 import net.neoforged.neoforge.transfer.resource.RegisteredResource;
 import net.neoforged.neoforge.transfer.energy.EnergyHandlerUtil;
 import org.jspecify.annotations.Nullable;
@@ -38,8 +42,10 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -50,7 +56,9 @@ public class PipeBlockEntity extends BlockEntity {
     private final long[] nextExtract = new long[6]; // game time per side
     // Sides switched off with the configurator (they never connect), holding what the side was so it can come back.
     private final PipeBlock.Side[] disabledFrom = new PipeBlock.Side[6];
-    private final int[] failedExtracts = new int[6]; // in a row, pauses the side once past the retries
+    private final int[] sleep = new int[6];
+    private final long[] lastExtract = new long[6];
+    private final boolean[] blocked = new boolean[6]; // last failed with something to move, so the targets were full
     private int @Nullable [] loadedWait; // ticks each side still had to wait when saved, applied on the first tick
     private final RedstoneMode[] redstone = new RedstoneMode[6];
     private final Distribution[] distribution = new Distribution[6];
@@ -61,6 +69,7 @@ public class PipeBlockEntity extends BlockEntity {
     private final int[] extractChannel = new int[6];
     private final boolean[] canThisSideRun = new boolean[6]; // strict check if a side can run, only checks for sides that extract
     private @Nullable BlockState canRunState; // state canThisSideRun was worked out for
+    private int activeSides = -1;
     private long lastTickTime = -1; // prevent tick acceleration, since it's just lag waiting to happen
     private final PipeFilter[] insertFilters = new PipeFilter[6];
     private final PipeFilter[] extractFilters = new PipeFilter[6];
@@ -75,8 +84,8 @@ public class PipeBlockEntity extends BlockEntity {
         }
     };
 
-    public record Rates(int ticks, int recheck, int items, int fluid, int energy, int rift) {}
-    private static final Rates CREATIVE = new Rates(1, 1, Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    public record Rates(int ticks, int items, int fluid, int energy, int rift) {}
+    private static final Rates CREATIVE = new Rates(1, Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE);
 
     /** Continue enums after the last one, to not mess up pre-existing worlds */
     public enum RedstoneMode {
@@ -95,6 +104,51 @@ public class PipeBlockEntity extends BlockEntity {
     // Order an extracting side hands items to its insert sides in.
     public enum Distribution {
         CLOSEST, FURTHEST, ROUND_ROBIN, RANDOM
+    }
+
+    // Connected pipes. A change marks it invalid, then the next pipe to look walks the network into a fresh one.
+    private static final class Network {
+        boolean valid = true;
+        final Set<PipeBlockEntity> members = Collections.newSetFromMap(new IdentityHashMap<>());
+        long wokenAt = -1;
+
+        // A target made room, so only sides blocked by full targets wake. Empty sources keep sleeping.
+        void wake(long time) {
+            if (wokenAt == time) return;
+            wokenAt = time;
+            for (PipeBlockEntity pipe : members) pipe.wake(true);
+        }
+    }
+
+    private @Nullable Network network;
+    private final Map<BlockCapability<?, @Nullable Direction>, BlockCapabilityCache<?, @Nullable Direction>[]> capabilityCaches = new HashMap<>();
+    // Per side, what the block there had no room for. Cleared when it changes, or every REFUSED_TICKS for blocks that don't say.
+    @SuppressWarnings("unchecked")
+    private final Set<Object>[] refused = new Set[6];
+    private final long[] refusedSince = new long[6];
+    private @Nullable Network cachedFor;
+    private List<Target> cachedTargets = List.of();
+
+    private List<Target> targets() {
+        if (network == null || !network.valid || cachedFor != network) {
+            cachedTargets = findTargets();
+            cachedFor = network;
+        }
+        return cachedTargets;
+    }
+
+    private void invalidateNetwork() {
+        if (network != null) network.valid = false;
+    }
+
+    // Connections may have changed, so neighboring networks could merge or split.
+    private void invalidateAround() {
+        invalidateNetwork();
+        if (level == null) return;
+        for (Direction dir : Direction.values()) {
+            BlockPos n = worldPosition.relative(dir);
+            if (level.isLoaded(n) && level.getBlockEntity(n) instanceof PipeBlockEntity pipe) pipe.invalidateNetwork();
+        }
     }
 
     public PipeBlockEntity(BlockPos pos, BlockState state) {
@@ -219,6 +273,7 @@ public class PipeBlockEntity extends BlockEntity {
         speed[i] = Math.clamp(input.getIntOr("speed", 0), 0, SLOWEST_SPEED);
         insertChannel[i] = Math.clamp(input.getIntOr("insert_channel", 0), 0, 15);
         extractChannel[i] = Math.clamp(input.getIntOr("extract_channel", 0), 0, 15);
+        invalidateNetwork();
         input.child("insert_filter").ifPresent(insertFilters[i]::load);
         input.child("extract_filter").ifPresent(extractFilters[i]::load);
         setChanged();
@@ -240,24 +295,48 @@ public class PipeBlockEntity extends BlockEntity {
     public void setInsertChannel(Direction dir, int channel) {
         insertChannel[dir.ordinal()] = channel;
         setChanged();
+        invalidateNetwork();
     }
 
     public void setExtractChannel(Direction dir, int channel) {
         extractChannel[dir.ordinal()] = channel;
         setChanged();
+        invalidateNetwork();
     }
 
     // Called when the mode, redstone setting or incoming signal changes. Not saved, onLoad works it out again.
     public void updateCanRun(BlockState state) {
         int signal = level.getBestNeighborSignal(worldPosition);
-        for (Direction dir : Direction.values())
-            canThisSideRun[dir.ordinal()] = state.getValue(SIDES.get(dir)).extracts() && getRedstone(dir).allows(signal);
+        int active = 0;
+        for (Direction dir : Direction.values()) {
+            boolean allows = getRedstone(dir).allows(signal);
+            canThisSideRun[dir.ordinal()] = state.getValue(SIDES.get(dir)).extracts() && allows;
+            if (allows) active |= 1 << dir.ordinal();
+        }
         canRunState = state;
+        if (active != activeSides) invalidateNetwork(); // redstone decides which insert sides are targets
+        activeSides = active;
+    }
+
+    @Override
+    public void setBlockState(BlockState state) {
+        super.setBlockState(state);
+        invalidateAround();
+    }
+
+    @Override
+    public void setRemoved() {
+        super.setRemoved();
+        invalidateNetwork();
+        if (network != null) network.members.remove(this);
+        PipesCommand.LOADED.remove(this);
     }
 
     @Override
     public void onLoad() {
         super.onLoad();
+        invalidateAround();
+        if (!level.isClientSide()) PipesCommand.LOADED.add(this);
         if (!level.isClientSide()) updateCanRun(getBlockState());
     }
 
@@ -292,10 +371,15 @@ public class PipeBlockEntity extends BlockEntity {
         return null;
     }
 
-    // True if one of the side's type slots (starting at first) already holds this upgrade, skipping ignoreSlot.
+    // True if one of the side's type slots (starting at first) already holds this upgrade or one of the same type,
+    // skipping ignoreSlot.
     public static boolean hasTypeUpgrade(Container container, int first, ItemStack stack, int ignoreSlot) {
-        for (int i = first + 1; i < first + UPGRADES_PER_SIDE; i++)
-            if (i != ignoreSlot && ItemStack.isSameItem(container.getItem(i), stack)) return true;
+        for (int i = first + 1; i < first + UPGRADES_PER_SIDE; i++) {
+            ItemStack held = container.getItem(i);
+            if (i == ignoreSlot || held.isEmpty()) continue;
+            if (ItemStack.isSameItem(held, stack)) return true;
+            for (TagKey<Item> type : ModTags.Items.UPGRADE_COMPAT) if (held.is(type) && stack.is(type)) return true;
+        }
         return false;
     }
 
@@ -312,12 +396,12 @@ public class PipeBlockEntity extends BlockEntity {
             c = ServerConfig.upgradeTiers.get(t);
             rift = ServerConfig.riftTiers.get(t);
         }
-        return new Rates(c.transferRate().get(), ServerConfig.extractRecheckDelay.get(),
+        return new Rates(c.transferRate().get(),
                 c.itemTransferRate().get(), c.fluidTransferRate().get(), c.energyTransferRate().get(), rift.get());
     }
 
     // Items always move, every other type needs its type upgrade (or creative).
-    public boolean movesType(Direction dir, Item type) {
+    public boolean movesType(Direction dir, TagKey<Item> type) {
         if (isCreative(dir)) return true;
         for (int i = 1; i < UPGRADES_PER_SIDE; i++) if (upgrade(dir, i).is(type)) return true;
         return false;
@@ -356,109 +440,261 @@ public class PipeBlockEntity extends BlockEntity {
 
     // Each extracting side runs on its own timer, since upgrades give sides different rates.
     public static void serverTick(Level level, BlockPos pos, BlockState state, PipeBlockEntity be) {
+        long start = System.nanoTime();
+        tick(level, pos, state, be);
+        PipesCommand.nanos += System.nanoTime() - start;
+    }
+
+    private static void tick(Level level, BlockPos pos, BlockState state, PipeBlockEntity be) {
         long time = level.getGameTime();
         if (time == be.lastTickTime) return;
         be.lastTickTime = time;
         if (be.loadedWait != null) {
-            for (int i = 0; i < Math.min(be.loadedWait.length, 6); i++) be.nextExtract[i] = time + be.loadedWait[i];
+            for (int i = 0; i < Math.min(be.loadedWait.length, 6); i++) {
+                be.nextExtract[i] = time + be.loadedWait[i];
+                if (be.loadedWait[i] > be.getSpeed(Direction.values()[i])) {
+                    be.sleep[i] = be.loadedWait[i];
+                    be.blocked[i] = true; // the reason wasn't saved, so either kind of wake may end it
+                }
+            }
             be.loadedWait = null;
         }
         if (state != be.canRunState) be.updateCanRun(state); // a side's mode changed
-        List<Target> targets = null;
         for (Direction dir : Direction.values()) {
             int i = dir.ordinal();
             if (!be.getCanThisSideRun(dir) || time < be.nextExtract[i]) continue;
-            if (targets == null) targets = findTargets(level, pos);
-            BlockPos src = pos.relative(dir);
-            Direction side = dir.getOpposite();
+            List<Target> targets = be.targets();
             int channel = be.getExtractChannel(dir);
             List<Target> dests = be.distribute(dir, targets.stream().filter(t -> t.channel == channel).toList());
             Rates rates = be.rates(dir);
             PipeFilter extractFilter = be.getFilter(dir, false);
             Map<PipeFilter.Entry, Integer> batches = new HashMap<>(); // per transfer, shared by every target
-            int moved = push(level, Capabilities.Item.BLOCK, src, side, dests, rates.items,
-                    (a, b, n, t) -> moveFiltered(a, b, extractFilter, t.filter, n, batches));
-            if (be.movesType(dir, ModItems.FLUID_UPGRADE.get()))
-                moved += push(level, Capabilities.Fluid.BLOCK, src, side, dests, rates.fluid,
-                        (a, b, n, t) -> moveFiltered(a, b, extractFilter, t.filter, n, batches));
-            if (be.movesType(dir, ModItems.ENERGY_UPGRADE.get()))
-                moved += push(level, Capabilities.Energy.BLOCK, src, side, dests, rates.energy, (a, b, n, t) -> EnergyHandlerUtil.move(a, b, n, null));
-            if (OmniPipes.RIFTS_LOADED && be.movesType(dir, ModItems.RIFT_UPGRADE.get()))
-                moved += RiftEnergy.push(level, src, side, dests, rates.rift);
-            be.failedExtracts[i] = moved > 0 ? 0 : be.failedExtracts[i] + 1;
-            boolean pause = ServerConfig.enablePipeOptimizations.get() && be.failedExtracts[i] > ServerConfig.retriesBeforePausing.get();
-            be.nextExtract[i] = time + (pause ? rates.recheck : be.getSpeed(dir));
+            int moved = push(be, dir, Capabilities.Item.BLOCK, dests, rates.items,
+                    (a, b, n, t) -> moveFiltered(a, b, extractFilter, t.filter, t.pipe.refused(t.dir), n, batches));
+            if (be.movesType(dir, ModTags.Items.FLUID_UPGRADE_COMPAT))
+                moved += push(be, dir, Capabilities.Fluid.BLOCK, dests, rates.fluid,
+                        (a, b, n, t) -> moveFiltered(a, b, extractFilter, t.filter, t.pipe.refused(t.dir), n, batches));
+            if (be.movesType(dir, ModTags.Items.ENERGY_UPGRADE_COMPAT))
+                moved += push(be, dir, Capabilities.Energy.BLOCK, dests, rates.energy, (a, b, n, t) -> EnergyHandlerUtil.move(a, b, n, null));
+            if (OmniPipes.RIFTS_LOADED && be.movesType(dir, ModTags.Items.RIFT_UPGRADE_COMPAT))
+                moved += RiftEnergy.push(be, dir, dests, rates.rift);
+            be.lastExtract[i] = time;
+            PipesCommand.tries++;
+            if (moved > 0) PipesCommand.moves++;
+            be.nextExtract[i] = time + be.backoff(i, moved > 0, be.getSpeed(dir));
+            be.blocked[i] = be.sleep[i] > 0 && be.hasWork(dir, extractFilter);
         }
+    }
+
+    // Each failure doubles the wait (up to maxSleepTicks), a success goes straight back to normal speed.
+    private long backoff(int i, boolean moved, int speed) {
+        if (moved || !ServerConfig.enablePipeOptimizations.get()) sleep[i] = 0;
+        else sleep[i] = Math.min(ServerConfig.maxSleepTicks.get(), Math.max(sleep[i], speed) * 2);
+        return Math.max(speed, sleep[i]);
+    }
+
+    public int sleepTicks(Direction dir) {
+        return sleep[dir.ordinal()];
+    }
+
+    // Whether the source holds anything movable, so a failure was down to full targets.
+    private boolean hasWork(Direction dir, PipeFilter filter) {
+        var items = neighbor(Capabilities.Item.BLOCK, dir);
+        if (items != null && hasAny(items, filter)) return true;
+        if (movesType(dir, ModTags.Items.FLUID_UPGRADE_COMPAT)) {
+            var fluids = neighbor(Capabilities.Fluid.BLOCK, dir);
+            if (fluids != null && hasAny(fluids, filter)) return true;
+        }
+        if (movesType(dir, ModTags.Items.ENERGY_UPGRADE_COMPAT)) {
+            var energy = neighbor(Capabilities.Energy.BLOCK, dir);
+            if (energy != null && energy.getAmountAsLong() > 0) return true;
+        }
+        return OmniPipes.RIFTS_LOADED && movesType(dir, ModTags.Items.RIFT_UPGRADE_COMPAT) && RiftEnergy.hasAny(this, dir);
+    }
+
+    private static <R extends RegisteredResource<?>> boolean hasAny(ResourceHandler<R> handler, PipeFilter filter) {
+        for (int i = 0; i < handler.size(); i++) {
+            R r = handler.getResource(i);
+            if (!r.isEmpty() && filter.allows(r)) return true;
+        }
+        return false;
+    }
+
+    public void wake() {
+        wake(false);
+    }
+
+    private void wake(boolean onlyBlocked) {
+        if (isRemoved()) return;
+        for (Direction dir : Direction.values()) {
+            int i = dir.ordinal();
+            if (sleep[i] == 0 || onlyBlocked && !blocked[i]) continue;
+            sleep[i] = 0;
+            nextExtract[i] = Math.min(nextExtract[i], lastExtract[i] + getSpeed(dir));
+        }
+    }
+
+    private static final int REFUSED_TICKS = 20;
+
+    Set<Object> refused(Direction dir) {
+        int i = dir.ordinal();
+        if (refused[i] == null) refused[i] = new HashSet<>();
+        long now = level.getGameTime();
+        if (!ServerConfig.enablePipeOptimizations.get() || now - refusedSince[i] >= REFUSED_TICKS) {
+            refused[i].clear();
+            refusedSince[i] = now;
+        }
+        return refused[i];
+    }
+
+    public void forgetRefused(@Nullable Direction dir) {
+        for (Direction d : Direction.values())
+            if ((dir == null || d == dir) && refused[d.ordinal()] != null) refused[d.ordinal()].clear();
+    }
+
+    public void wakeNetwork() {
+        if (network != null && level != null) network.wake(level.getGameTime());
+        else wake();
     }
 
     public interface Mover<H> {
         int move(H from, @Nullable H to, int amount, Target target);
     }
 
-    public static <H> int push(Level level, BlockCapability<H, @Nullable Direction> cap, BlockPos src, Direction side,
-                                List<Target> targets, int amount, Mover<H> mover) {
-        H from = level.getCapability(cap, src, side);
+    public static <H> int push(PipeBlockEntity pipe, Direction dir, BlockCapability<H, @Nullable Direction> cap,
+                               List<Target> targets, int amount, Mover<H> mover) {
+        H from = pipe.neighbor(cap, dir);
         if (from == null) return 0;
+        BlockPos src = pipe.worldPosition.relative(dir);
         int left = amount;
         for (Target t : targets) {
             if (left <= 0) break;
-            if (!t.pos.equals(src)) left -= mover.move(from, level.getCapability(cap, t.pos, t.side), left, t);
+            if (!t.pos.equals(src)) left -= mover.move(from, t.pipe.neighbor(cap, t.dir), left, t);
         }
         return amount - left;
+    }
+
+    // Cached per side and type, NeoForge clears it when that block changes.
+    @SuppressWarnings("unchecked")
+    public <H> @Nullable H neighbor(BlockCapability<H, @Nullable Direction> cap, Direction dir) {
+        if (isRemoved() || !(level instanceof ServerLevel server)) return null;
+        var caches = (BlockCapabilityCache<H, @Nullable Direction>[]) capabilityCaches.computeIfAbsent(cap, c -> new BlockCapabilityCache[6]);
+        var cache = caches[dir.ordinal()];
+        if (cache == null) {
+            cache = BlockCapabilityCache.create(cap, server, worldPosition.relative(dir), dir.getOpposite(), () -> !isRemoved(), () -> {});
+            caches[dir.ordinal()] = cache;
+        }
+        return cache.getCapability();
     }
 
     // Moves up to amount items or fluids that pass this side's extract filter and the target's insert filter, one resource at
     // a time so filter amounts apply: an extract entry moves at most that many per transfer (tracked in batches
     // across all targets), an insert entry fills the target only up to that many.
     private static <R extends RegisteredResource<?>> int moveFiltered(ResourceHandler<R> from, @Nullable ResourceHandler<R> to,
-                                 PipeFilter extract, PipeFilter insert, int amount, Map<PipeFilter.Entry, Integer> batches) {
+                                 PipeFilter extract, PipeFilter insert, Set<Object> refused, int amount, Map<PipeFilter.Entry, Integer> batches) {
         if (to == null) return 0;
         int moved = 0;
+        Map<PipeFilter.Entry, Integer> stocked = new HashMap<>();
+        @Nullable R skipped = null; // cheap check before hashing
         for (int i = 0; i < from.size() && moved < amount; i++) {
             R r = from.getResource(i);
-            if (r.isEmpty() || !extract.allows(r) || !insert.allows(r)) continue;
+            if (r.isEmpty() || r.equals(skipped)) continue;
+            if (refused.contains(r)) {
+                skipped = r;
+                continue;
+            }
+            if (!extract.allows(r) || !insert.allows(r)) continue;
             int limit = amount - moved;
             int batch = extract.amount(r);
             PipeFilter.Entry batchEntry = batch > 0 ? extract.match(r) : null;
             if (batchEntry != null) limit = Math.min(limit, batch - batches.getOrDefault(batchEntry, 0));
             int stock = insert.amount(r);
-            if (stock > 0) limit = Math.min(limit, stock - count(to, r, insert));
+            PipeFilter.Entry stockEntry = stock > 0 ? insert.match(r) : null;
+            if (stockEntry != null) limit = Math.min(limit, stock - stocked.computeIfAbsent(stockEntry, e -> count(to, e, insert)));
             if (limit <= 0) continue;
-            int done = ResourceHandlerUtil.move(from, to, r::equals, limit, null);
+            int done = moveSlot(from, i, r, to, limit, refused);
             if (batchEntry != null) batches.merge(batchEntry, done, Integer::sum);
+            if (stockEntry != null) stocked.merge(stockEntry, done, Integer::sum);
             moved += done;
         }
         return moved;
     }
 
-    // How much the handler holds of everything that matches the same filter entry as this resource.
-    private static <R extends RegisteredResource<?>> int count(ResourceHandler<R> handler, R resource, PipeFilter filter) {
-        PipeFilter.Entry entry = filter.match(resource);
+    // ResourceHandlerUtil.move for one slot. A target taking less than offered is out of room, so it's refused.
+    private static <R extends RegisteredResource<?>> int moveSlot(ResourceHandler<R> from, int index, R resource, ResourceHandler<R> to,
+                                                                  int amount, Set<Object> refused) {
+        try (Transaction transaction = Transaction.openRoot()) {
+            int available;
+            try (Transaction simulate = Transaction.open(transaction)) {
+                available = from.extract(index, resource, amount, simulate);
+            }
+            if (available == 0) return 0;
+            int inserted = to.insert(resource, available, transaction);
+            if (inserted < available) refused.add(resource);
+            if (inserted == 0 || inserted != from.extract(index, resource, inserted, transaction)) return 0;
+            transaction.commit();
+            return inserted;
+        }
+    }
+
+    // How much the handler holds of everything that matches this filter entry.
+    private static <R extends RegisteredResource<?>> int count(ResourceHandler<R> handler, PipeFilter.Entry entry, PipeFilter filter) {
         int total = 0;
         for (int i = 0; i < handler.size(); i++)
             if (!handler.getResource(i).isEmpty() && filter.match(handler.getResource(i)) == entry) total += handler.getAmountAsInt(i);
         return total;
     }
 
-    public record Target(BlockPos pos, Direction side, int channel, PipeFilter filter) {}
+    public Object networkId() {
+        if (network == null || !network.valid) targets();
+        return network;
+    }
 
-    // Cache the network per pipe if big networks lag
-    private static List<Target> findTargets(Level level, BlockPos start) {
+    public record NetworkInfo(Object id, String dimension, BlockPos at, int pipes, int targets, int extractSides, int sleeping, int blocked) {}
+
+    public NetworkInfo networkInfo() {
+        Object id = networkId();
+        int targets = 0, extracting = 0, sleeping = 0, blockedSides = 0;
+        for (PipeBlockEntity pipe : network.members) {
+            for (Direction dir : Direction.values()) {
+                PipeBlock.Side side = pipe.getBlockState().getValue(SIDES.get(dir));
+                if (side.inserts()) targets++;
+                if (!side.extracts()) continue;
+                extracting++;
+                if (pipe.sleep[dir.ordinal()] > 0) sleeping++;
+                if (pipe.sleep[dir.ordinal()] > 0 && pipe.blocked[dir.ordinal()]) blockedSides++;
+            }
+        }
+        return new NetworkInfo(id, level.dimension().identifier().toString(), worldPosition, network.members.size(), targets, extracting, sleeping, blockedSides);
+    }
+
+    public record Target(PipeBlockEntity pipe, Direction dir, BlockPos pos, int channel, PipeFilter filter) {}
+
+    // Every insert side in the network, closest first.
+    private List<Target> findTargets() {
+        boolean fresh = network == null || !network.valid;
+        if (fresh) {
+            network = new Network();
+            PipesCommand.rebuilds++;
+        }
         List<Target> out = new ArrayList<>();
-        Set<BlockPos> seen = new HashSet<>(List.of(start));
+        Set<BlockPos> seen = new HashSet<>(List.of(worldPosition));
         ArrayDeque<BlockPos> queue = new ArrayDeque<>(seen);
         while (!queue.isEmpty()) {
             BlockPos p = queue.poll();
             BlockState s = level.getBlockState(p);
             if (!(s.getBlock() instanceof PipeBlock) || !(level.getBlockEntity(p) instanceof PipeBlockEntity be)) continue;
+            if (fresh) {
+                be.network = network;
+                network.members.add(be);
+            }
             for (Direction dir : Direction.values()) {
                 PipeBlock.Side side = s.getValue(SIDES.get(dir));
                 BlockPos n = p.relative(dir);
-                if (!level.isLoaded(n)) continue;
                 if (side == PipeBlock.Side.PIPE) {
-                    if (seen.add(n)) queue.add(n);
+                    if (level.isLoaded(n) && seen.add(n)) queue.add(n);
                 } else if (side.inserts() && be.isActive(dir)) {
-                    out.add(new Target(n, dir.getOpposite(), be.getInsertChannel(dir), be.getFilter(dir, true)));
+                    out.add(new Target(be, dir, n, be.getInsertChannel(dir), be.getFilter(dir, true)));
                 }
             }
         }

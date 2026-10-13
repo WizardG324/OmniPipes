@@ -31,9 +31,9 @@ public class ModItemTagsProvider extends ItemTagsProvider {
         ModItems.TIER_UPGRADES.forEach(tier -> tag(ModTags.Items.TIER_UPGRADES).add(tier.get()));
         tag(Tags.Items.TOOLS_WRENCH).add(ModItems.PIPE_CONFIGURATOR.get());
         tag(ModTags.Items.TIER_UPGRADES).add(ModItems.CREATIVE_UPGRADE.get());
-        tag(ModTags.Items.TYPE_UPGRADES)
-                .add(ModItems.FLUID_UPGRADE.get())
-                .add(ModItems.ENERGY_UPGRADE.get())
-                .add(ModItems.RIFT_UPGRADE.get());
+        tag(ModTags.Items.FLUID_UPGRADE_COMPAT).add(ModItems.FLUID_UPGRADE.get());
+        tag(ModTags.Items.ENERGY_UPGRADE_COMPAT).add(ModItems.ENERGY_UPGRADE.get());
+        tag(ModTags.Items.RIFT_UPGRADE_COMPAT).add(ModItems.RIFT_UPGRADE.get());
+        ModTags.Items.UPGRADE_COMPAT.forEach(type -> tag(ModTags.Items.TYPE_UPGRADES).addTag(type));
     }
 }

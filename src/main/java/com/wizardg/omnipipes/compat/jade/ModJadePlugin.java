@@ -4,6 +4,7 @@ import com.wizardg.omnipipes.OmniPipes;
 import com.wizardg.omnipipes.block.custom.PipeBlock;
 import com.wizardg.omnipipes.block.entity.PipeBlockEntity;
 import com.wizardg.omnipipes.item.ModItems;
+import com.wizardg.omnipipes.util.ModTags;
 import com.wizardg.omnipipes.util.ModFormat;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -54,9 +55,9 @@ public class ModJadePlugin implements IWailaPlugin {
             data.putInt("speed", be.getSpeed(dir));
             data.putBoolean("creative", be.isCreative(dir));
             data.putInt("items", rates.items());
-            data.putInt("fluid", be.movesType(dir, ModItems.FLUID_UPGRADE.get()) ? rates.fluid() : -1);
-            data.putInt("energy", be.movesType(dir, ModItems.ENERGY_UPGRADE.get()) ? rates.energy() : -1);
-            data.putInt("rift", OmniPipes.RIFTS_LOADED && be.movesType(dir, ModItems.RIFT_UPGRADE.get()) ? rates.rift() : -1);
+            data.putInt("fluid", be.movesType(dir, ModTags.Items.FLUID_UPGRADE_COMPAT) ? rates.fluid() : -1);
+            data.putInt("energy", be.movesType(dir, ModTags.Items.ENERGY_UPGRADE_COMPAT) ? rates.energy() : -1);
+            data.putInt("rift", OmniPipes.RIFTS_LOADED && be.movesType(dir, ModTags.Items.RIFT_UPGRADE_COMPAT) ? rates.rift() : -1);
             data.putInt("insert_channel", be.getInsertChannel(dir));
             data.putInt("extract_channel", be.getExtractChannel(dir));
         }

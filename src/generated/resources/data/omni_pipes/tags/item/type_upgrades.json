@@ -1,7 +1,7 @@
 {
   "values": [
-    "omni_pipes:fluid_upgrade",
-    "omni_pipes:energy_upgrade",
-    "omni_pipes:rift_upgrade"
+    "#omni_pipes:fluid_upgrade_compat",
+    "#omni_pipes:energy_upgrade_compat",
+    "#omni_pipes:rift_upgrade_compat"
   ]
 }

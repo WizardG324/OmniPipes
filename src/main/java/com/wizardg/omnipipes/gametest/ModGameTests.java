@@ -49,8 +49,8 @@ public class ModGameTests {
     public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> BOTH_RECEIVES =
             TEST_FUNCTIONS.register("both_receives", () -> ModGameTests::bothReceives);
 
-    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> EXTRACT_RECHECK_DELAY =
-            TEST_FUNCTIONS.register("extract_recheck_delay", () -> ModGameTests::extractRecheckDelay);
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> SLEEP_AND_WAKE =
+            TEST_FUNCTIONS.register("sleep_and_wake", () -> ModGameTests::sleepAndWake);
 
     public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> PIPE_SHAPE =
             TEST_FUNCTIONS.register("pipe_shape", () -> ModGameTests::pipeShape);
@@ -121,6 +121,27 @@ public class ModGameTests {
     public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> CONFIGURATOR_DISMANTLE =
             TEST_FUNCTIONS.register("configurator_dismantle", () -> ModGameTests::configuratorDismantle);
 
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> NETWORK_CACHE_UPDATES =
+            TEST_FUNCTIONS.register("network_cache_updates", () -> ModGameTests::networkCacheUpdates);
+
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> NETWORK_SPLIT_MERGE =
+            TEST_FUNCTIONS.register("network_split_merge", () -> ModGameTests::networkSplitMerge);
+
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> TARGET_WAKES_NETWORK =
+            TEST_FUNCTIONS.register("target_wakes_network", () -> ModGameTests::targetWakesNetwork);
+
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> SOURCE_ABOVE_WAKES =
+            TEST_FUNCTIONS.register("source_above_wakes", () -> ModGameTests::sourceAboveWakes);
+
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> SMALL_SLOT_KEEPS_GOING =
+            TEST_FUNCTIONS.register("small_slot_keeps_going", () -> ModGameTests::smallSlotKeepsGoing);
+
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> EMPTY_SOURCE_KEEPS_SLEEPING =
+            TEST_FUNCTIONS.register("empty_source_keeps_sleeping", () -> ModGameTests::emptySourceKeepsSleeping);
+
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>> DIAGNOSTICS =
+            TEST_FUNCTIONS.register("diagnostics", () -> ModGameTests::diagnostics);
+
     public static void registerTests(RegisterGameTestsEvent event) {
         Holder<TestEnvironmentDefinition<?>> environment = event.registerEnvironment(id("default"));
         TestData<Holder<TestEnvironmentDefinition<?>>> testData = new TestData<>(
@@ -152,7 +173,14 @@ public class ModGameTests {
         event.registerTest(id("configurator_disable"), new FunctionGameTestInstance(CONFIGURATOR_DISABLE.getKey(), testData));
         event.registerTest(id("configurator_dismantle"), new FunctionGameTestInstance(CONFIGURATOR_DISMANTLE.getKey(), testData));
         event.registerTest(id("pipe_shape"), new FunctionGameTestInstance(PIPE_SHAPE.getKey(), testData));
-        event.registerTest(id("extract_recheck_delay"), new FunctionGameTestInstance(EXTRACT_RECHECK_DELAY.getKey(), testData));
+        event.registerTest(id("sleep_and_wake"), new FunctionGameTestInstance(SLEEP_AND_WAKE.getKey(), testData));
+        event.registerTest(id("network_cache_updates"), new FunctionGameTestInstance(NETWORK_CACHE_UPDATES.getKey(), testData));
+        event.registerTest(id("network_split_merge"), new FunctionGameTestInstance(NETWORK_SPLIT_MERGE.getKey(), testData));
+        event.registerTest(id("target_wakes_network"), new FunctionGameTestInstance(TARGET_WAKES_NETWORK.getKey(), testData));
+        event.registerTest(id("source_above_wakes"), new FunctionGameTestInstance(SOURCE_ABOVE_WAKES.getKey(), testData));
+        event.registerTest(id("small_slot_keeps_going"), new FunctionGameTestInstance(SMALL_SLOT_KEEPS_GOING.getKey(), testData));
+        event.registerTest(id("empty_source_keeps_sleeping"), new FunctionGameTestInstance(EMPTY_SOURCE_KEEPS_SLEEPING.getKey(), testData));
+        event.registerTest(id("diagnostics"), new FunctionGameTestInstance(DIAGNOSTICS.getKey(), testData));
     }
 
     private static Identifier id(String name) {
@@ -195,21 +223,16 @@ public class ModGameTests {
         helper.succeedWhen(() -> helper.assertTrue(diamonds(helper, 2) == 5, "both side should receive"));
     }
 
-    // Source starts empty, so the first extract fails and the pipe should wait extractRecheckDelay (50) ticks.
-    // An empty source fails the first try and each retry at normal speed, then the side pauses for the recheck
-    // delay: diamonds added after the last retry wait out the pause, not just one normal step.
-    private static void extractRecheckDelay(GameTestHelper helper) {
+    // An empty source makes the side sleep, filling it wakes the side early.
+    private static void sleepAndWake(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT);
         BarrelBlockEntity source = helper.getBlockEntity(new BlockPos(1, 1, 2), BarrelBlockEntity.class);
         source.clearContent();
-        int speed = ServerConfig.base.transferRate().get();
-        int lastRetry = ServerConfig.retriesBeforePausing.get() * speed;
-        int pause = ServerConfig.extractRecheckDelay.get();
         helper.startSequence()
-                .thenIdle(lastRetry + 5)
+                .thenIdle(100) // tries at 0 and 80, the next at 180, or 120 when woken
                 .thenExecute(() -> source.setItem(0, new ItemStack(Items.DIAMOND, 5)))
-                .thenExecuteFor(pause - 10, () -> helper.assertTrue(diamonds(helper, 1) == 5, "pipe should be paused"))
-                .thenWaitUntil(() -> helper.assertTrue(diamonds(helper, 2) == 5, "pipe should resume after the pause"))
+                .thenIdle(25)
+                .thenExecute(() -> helper.assertTrue(diamonds(helper, 2) == 5, "the woken side should transfer"))
                 .thenSucceed();
     }
 
@@ -373,6 +396,114 @@ public class ModGameTests {
     }
 
     // Extract amount 2: each transfer moves 2 diamonds (the base rate would move all 5 at once).
+    // Moving the second barrel to the red channel mid-run sends the rest to the third barrel.
+    private static void networkCacheUpdates(GameTestHelper helper) {
+        pipeRow(helper, Side.EXTRACT, Side.INSERT, Side.INSERT);
+        helper.getBlockEntity(new BlockPos(1, 1, 2), BarrelBlockEntity.class).setItem(0, new ItemStack(Items.DIAMOND, 16));
+        boolean[] switched = {false};
+        helper.onEachTick(() -> {
+            if (switched[0] || diamonds(helper, 2) == 0) return;
+            switched[0] = true;
+            helper.getBlockEntity(new BlockPos(2, 1, 1), PipeBlockEntity.class).setInsertChannel(Direction.SOUTH, DyeColor.RED.getId());
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(diamonds(helper, 2) < 16 && diamonds(helper, 3) == 16 - diamonds(helper, 2), "the rest should reach the third barrel");
+            helper.assertTrue(diamonds(helper, 1) == 0, "the source should be empty");
+        });
+    }
+
+    // Breaking the middle pipe splits the network, putting it back merges it again.
+    private static void networkSplitMerge(GameTestHelper helper) {
+        pipeRow(helper, Side.EXTRACT, Side.NONE, Side.INSERT);
+        helper.getBlockEntity(new BlockPos(1, 1, 2), BarrelBlockEntity.class).setItem(0, new ItemStack(Items.DIAMOND, 16));
+        BlockPos middle = new BlockPos(2, 1, 1);
+        int batch = ServerConfig.base.itemTransferRate().get();
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(diamonds(helper, 3) == batch, "the first batch should arrive"))
+                .thenExecute(() -> helper.setBlock(middle, Blocks.AIR))
+                .thenIdle(90)
+                .thenExecute(() -> helper.assertTrue(diamonds(helper, 3) == batch, "a split network should not reach the far barrel"))
+                .thenExecute(() -> helper.setBlock(middle, ModBlocks.PIPE.get().defaultBlockState()
+                        .setValue(PipeBlock.SIDES.get(Direction.WEST), Side.PIPE).setValue(PipeBlock.SIDES.get(Direction.EAST), Side.PIPE)))
+                .thenWaitUntil(() -> helper.assertTrue(diamonds(helper, 3) == 16, "the merged network should deliver the rest"))
+                .thenSucceed();
+    }
+
+    // A full target makes the extracting side sleep, emptying a slot of it wakes the network.
+    private static void targetWakesNetwork(GameTestHelper helper) {
+        pipeRow(helper, Side.EXTRACT, Side.INSERT);
+        BarrelBlockEntity target = helper.getBlockEntity(new BlockPos(2, 1, 2), BarrelBlockEntity.class);
+        for (int slot = 0; slot < target.getContainerSize(); slot++) target.setItem(slot, new ItemStack(Items.STONE, 64));
+        helper.startSequence()
+                .thenIdle(100)
+                .thenExecute(() -> target.removeItem(0, 64))
+                .thenIdle(25)
+                .thenExecute(() -> helper.assertTrue(diamonds(helper, 2) == 5, "the woken network should transfer"))
+                .thenSucceed();
+    }
+
+    // Like sleepAndWake, with the source above the pipe.
+    private static void sourceAboveWakes(GameTestHelper helper) {
+        pipeRow(helper, Side.NONE, Side.INSERT);
+        BlockPos pipe = new BlockPos(1, 1, 1), above = new BlockPos(1, 2, 1);
+        helper.getBlockEntity(new BlockPos(1, 1, 2), BarrelBlockEntity.class).clearContent();
+        helper.setBlock(above, Blocks.BARREL);
+        helper.setBlock(pipe, helper.getBlockState(pipe).setValue(PipeBlock.SIDES.get(Direction.UP), Side.EXTRACT));
+        BarrelBlockEntity source = helper.getBlockEntity(above, BarrelBlockEntity.class);
+        helper.startSequence()
+                .thenIdle(100) // tries at 0 and 80, the next at 180, or 120 when woken
+                .thenExecute(() -> source.setItem(0, new ItemStack(Items.DIAMOND, 5)))
+                .thenIdle(25)
+                .thenExecute(() -> helper.assertTrue(diamonds(helper, 2) == 5, "the side under the source should wake"))
+                .thenSucceed();
+    }
+
+    // A slot holding less than the transfer amount doesn't stop the rest of that item moving from later slots.
+    private static void smallSlotKeepsGoing(GameTestHelper helper) {
+        pipeRow(helper, Side.EXTRACT, Side.INSERT);
+        BarrelBlockEntity source = helper.getBlockEntity(new BlockPos(1, 1, 2), BarrelBlockEntity.class);
+        source.setItem(0, new ItemStack(Items.DIAMOND, 1));
+        source.setItem(1, new ItemStack(Items.DIAMOND, 64));
+        int batch = ServerConfig.base.itemTransferRate().get();
+        helper.runAfterDelay(5, () -> {
+            helper.assertTrue(diamonds(helper, 2) == batch, "the first transfer should move a full batch");
+            helper.succeed();
+        });
+    }
+
+    // Network wakes from the busy first pipe don't reset the third pipe's sleep, since its source is empty.
+    private static void emptySourceKeepsSleeping(GameTestHelper helper) {
+        pipeRow(helper, Side.EXTRACT, Side.INSERT, Side.EXTRACT);
+        helper.getBlockEntity(new BlockPos(1, 1, 2), BarrelBlockEntity.class).setItem(0, new ItemStack(Items.DIAMOND, 64));
+        PipeBlockEntity idle = helper.getBlockEntity(new BlockPos(3, 1, 1), PipeBlockEntity.class);
+        helper.runAfterDelay(190, () -> {
+            helper.assertTrue(diamonds(helper, 2) > 0, "the first pipe should be busy");
+            helper.assertTrue(idle.sleepTicks(Direction.SOUTH) == ServerConfig.maxSleepTicks.get(), "the empty side should reach the longest sleep");
+            helper.succeed();
+        });
+    }
+
+    // The network summary counts this row right, and every /omnipipes subcommand runs.
+    private static void diagnostics(GameTestHelper helper) {
+        pipeRow(helper, Side.EXTRACT, Side.INSERT, Side.INSERT);
+        helper.runAfterDelay(2, () -> {
+            PipeBlockEntity.NetworkInfo info = helper.getBlockEntity(new BlockPos(2, 1, 1), PipeBlockEntity.class).networkInfo();
+            helper.assertTrue(info.pipes() == 3 && info.targets() == 2 && info.extractSides() == 1, "network summary should match the row: " + info);
+            var server = helper.getLevel().getServer();
+            var source = server.createCommandSourceStack().withLevel(helper.getLevel());
+            BlockPos at = helper.absolutePos(new BlockPos(1, 1, 1));
+            try {
+                var dispatcher = server.getCommands().getDispatcher();
+                helper.assertTrue(dispatcher.execute("omnipipes stats", source) > 0, "stats should see loaded pipes");
+                helper.assertTrue(dispatcher.execute("omnipipes networks", source) > 0, "networks should list this one");
+                helper.assertTrue(dispatcher.execute("omnipipes network " + at.getX() + " " + at.getY() + " " + at.getZ(), source) == 1, "network should find the pipe");
+            } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+                throw new RuntimeException(e);
+            }
+            helper.succeed();
+        });
+    }
+
     private static void extractBatch(GameTestHelper helper) {
         stockSetup(helper, false, 2);
         helper.startSequence()

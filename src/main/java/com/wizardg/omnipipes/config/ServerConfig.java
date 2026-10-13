@@ -10,8 +10,7 @@ public class ServerConfig {
     public static final ModConfigSpec SPEC;
 
     public static final ModConfigSpec.ConfigValue<Boolean> enablePipeOptimizations;
-    public static final ModConfigSpec.ConfigValue<Integer> retriesBeforePausing;
-    public static final ModConfigSpec.ConfigValue<Integer> extractRecheckDelay;
+    public static final ModConfigSpec.ConfigValue<Integer> maxSleepTicks;
     public static final Rates base;
     public static final List<Rates> upgradeTiers = new ArrayList<>(); // index 0 = tier 1
     public static final ModConfigSpec.ConfigValue<Integer> riftBase;
@@ -26,16 +25,13 @@ public class ServerConfig {
         BUILDER.comment("Pipe settings").push("Pipes");
 
         enablePipeOptimizations = BUILDER
-                .comment("Pause pipes that keep failing to extract, instead of retrying at full speed.")
+                .comment("Let sides that keep failing to extract sleep longer between tries, instead of retrying at full speed.")
                 .define("enablePipeOptimizations", true);
 
-        retriesBeforePausing = BUILDER
-                .comment("How many failed extracts that can happen before pausing")
-                .defineInRange("retriesBeforePausing", 2, 0, 100);
-
-        extractRecheckDelay = BUILDER
-                .comment("Ticks a pipe pauses for once it runs out of retries.")
-                .defineInRange("extractRecheckDelay", 50, 0, 1200);
+        maxSleepTicks = BUILDER
+                .comment("Longest a side sleeps. Each failed extract doubles its wait, a success puts it back to normal speed,",
+                        "and a change next to the pipe wakes it.")
+                .defineInRange("maxSleepTicks", 100, 1, 1200);
 
         BUILDER.pop();
 

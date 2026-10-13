@@ -47,6 +47,15 @@ public class ModLangProvider extends LanguageProvider {
         add("jade.omni_pipes.rift", "%s RE");
         add("jade.omni_pipes.unlimited", "Unlimited");
 
+        //Commands
+        add("command.omni_pipes.stats", "%s pipes loaded in %s networks, %s extracting sides (%s sleeping)");
+        add("command.omni_pipes.stats.activity", "Last %ss: %s ms/tick in pipes, %s transfers/s (%s moved something), %s network rebuilds/s");
+        add("command.omni_pipes.stats.collecting", "Activity numbers are still being collected, try again in a few seconds");
+        add("command.omni_pipes.networks.none", "No pipe networks loaded");
+        add("command.omni_pipes.network", "%s pipes, %s targets, %s extracting sides (%s sleeping, %s blocked by full targets) at %s");
+        add("command.omni_pipes.network.not_pipe", "No pipe found");
+        add("command.omni_pipes.network.teleport", "Click to teleport (%s)");
+
         //Messages
         add("message.omni_pipes.upgrade.same_tier", "A tier upgrade of this type already exists");
         add("message.omni_pipes.upgrade.same_type", "An upgrade of this type already exists");

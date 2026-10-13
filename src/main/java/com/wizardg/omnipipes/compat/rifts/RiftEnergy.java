@@ -19,8 +19,13 @@ public final class RiftEnergy {
         return level.getCapability(RiftsCapabilities.RIFT_ENERGY, pos, side) != null;
     }
 
-    public static int push(Level level, BlockPos src, Direction side, List<PipeBlockEntity.Target> targets, int amount) {
-        return PipeBlockEntity.push(level, RiftsCapabilities.RIFT_ENERGY, src, side, targets, amount, (from, to, n, t) -> move(from, to, n));
+    public static boolean hasAny(PipeBlockEntity pipe, Direction dir) {
+        RiftEnergyHandler handler = pipe.neighbor(RiftsCapabilities.RIFT_ENERGY, dir);
+        return handler != null && handler.getAmountAsLong() > 0;
+    }
+
+    public static int push(PipeBlockEntity pipe, Direction dir, List<PipeBlockEntity.Target> targets, int amount) {
+        return PipeBlockEntity.push(pipe, dir, RiftsCapabilities.RIFT_ENERGY, targets, amount, (from, to, n, t) -> move(from, to, n));
     }
 
     // Same as EnergyHandlerUtil.move: simulate the extract, insert that, then extract what went in.
