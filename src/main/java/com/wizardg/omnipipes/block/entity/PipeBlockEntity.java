@@ -2,6 +2,7 @@ package com.wizardg.omnipipes.block.entity;
 
 import com.wizardg.omnipipes.block.ModBlockEntities;
 import com.wizardg.omnipipes.block.custom.PipeBlock;
+import com.wizardg.omnipipes.command.PipesCommand;
 import com.wizardg.omnipipes.config.ServerConfig;
 import com.wizardg.omnipipes.item.ModItems;
 import com.wizardg.omnipipes.util.ModTags;
@@ -10,6 +11,8 @@ import net.minecraft.core.Direction;
 import net.minecraft.Util;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.SimpleContainer;
@@ -17,14 +20,17 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemStackLinkedSet;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.capabilities.BlockCapability;
+import net.neoforged.neoforge.capabilities.BlockCapabilityCache;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidStackLinkedSet;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
@@ -33,8 +39,10 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -45,7 +53,9 @@ public class PipeBlockEntity extends BlockEntity {
     private final long[] nextExtract = new long[6]; // game time per side
     // Sides switched off with the configurator (they never connect), holding what the side was so it can come back.
     private final PipeBlock.Side[] disabledFrom = new PipeBlock.Side[6];
-    private final int[] failedExtracts = new int[6]; // in a row, pauses the side once past the retries
+    private final int[] sleep = new int[6];
+    private final long[] lastExtract = new long[6];
+    private final boolean[] blocked = new boolean[6]; // last failed with something to move, so the targets were full
     private int @Nullable [] loadedWait; // ticks each side still had to wait when saved, applied on the first tick
     private final RedstoneMode[] redstone = new RedstoneMode[6];
     private final Distribution[] distribution = new Distribution[6];
@@ -56,6 +66,7 @@ public class PipeBlockEntity extends BlockEntity {
     private final int[] extractChannel = new int[6];
     private final boolean[] canThisSideRun = new boolean[6]; // strict check if a side can run, only checks for sides that extract
     private @Nullable BlockState canRunState; // state canThisSideRun was worked out for
+    private int activeSides = -1;
     private long lastTickTime = -1; // prevent tick acceleration, since it's just lag waiting to happen
     private final PipeFilter[] insertFilters = new PipeFilter[6];
     private final PipeFilter[] extractFilters = new PipeFilter[6];
@@ -70,8 +81,8 @@ public class PipeBlockEntity extends BlockEntity {
         }
     };
 
-    public record Rates(int ticks, int recheck, int items, int fluid, int energy) {}
-    private static final Rates CREATIVE = new Rates(1, 1, Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    public record Rates(int ticks, int items, int fluid, int energy) {}
+    private static final Rates CREATIVE = new Rates(1, Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE);
 
     /** Continue enums after the last one, to not mess up pre-existing worlds */
     public enum RedstoneMode {
@@ -90,6 +101,52 @@ public class PipeBlockEntity extends BlockEntity {
     // Order an extracting side hands items to its insert sides in.
     public enum Distribution {
         CLOSEST, FURTHEST, ROUND_ROBIN, RANDOM
+    }
+
+    // Connected pipes. A change marks it invalid, then the next pipe to look walks the network into a fresh one.
+    private static final class Network {
+        boolean valid = true;
+        final Set<PipeBlockEntity> members = Collections.newSetFromMap(new IdentityHashMap<>());
+        long wokenAt = -1;
+
+        // A target made room, so only sides blocked by full targets wake. Empty sources keep sleeping.
+        void wake(long time) {
+            if (wokenAt == time) return;
+            wokenAt = time;
+            for (PipeBlockEntity pipe : members) pipe.wake(true);
+        }
+    }
+
+    private @Nullable Network network;
+    private final Map<BlockCapability<?, @Nullable Direction>, BlockCapabilityCache<?, @Nullable Direction>[]> capabilityCaches = new HashMap<>();
+    // Per side, what the block there had no room for. Cleared when it changes, or every REFUSED_TICKS for blocks that don't say.
+    record Refused(Set<ItemStack> items, Set<FluidStack> fluids) {}
+    private final Refused[] refused = new Refused[6];
+    private final long[] refusedSince = new long[6];
+    private static final int REFUSED_TICKS = 20;
+    private @Nullable Network cachedFor;
+    private List<Target> cachedTargets = List.of();
+
+    private List<Target> targets() {
+        if (network == null || !network.valid || cachedFor != network) {
+            cachedTargets = findTargets();
+            cachedFor = network;
+        }
+        return cachedTargets;
+    }
+
+    private void invalidateNetwork() {
+        if (network != null) network.valid = false;
+    }
+
+    // Connections may have changed, so neighboring networks could merge or split.
+    private void invalidateAround() {
+        invalidateNetwork();
+        if (level == null) return;
+        for (Direction dir : Direction.values()) {
+            BlockPos n = worldPosition.relative(dir);
+            if (level.isLoaded(n) && level.getBlockEntity(n) instanceof PipeBlockEntity pipe) pipe.invalidateNetwork();
+        }
     }
 
     public PipeBlockEntity(BlockPos pos, BlockState state) {
@@ -213,6 +270,7 @@ public class PipeBlockEntity extends BlockEntity {
         speed[i] = Math.clamp(settings.getInt("speed"), 0, SLOWEST_SPEED);
         insertChannel[i] = Math.clamp(settings.getInt("insert_channel"), 0, 15);
         extractChannel[i] = Math.clamp(settings.getInt("extract_channel"), 0, 15);
+        invalidateNetwork();
         insertFilters[i].load(settings.getCompound("insert_filter"), level.registryAccess());
         extractFilters[i].load(settings.getCompound("extract_filter"), level.registryAccess());
         setChanged();
@@ -234,25 +292,51 @@ public class PipeBlockEntity extends BlockEntity {
     public void setInsertChannel(Direction dir, int channel) {
         insertChannel[dir.ordinal()] = channel;
         setChanged();
+        invalidateNetwork();
     }
 
     public void setExtractChannel(Direction dir, int channel) {
         extractChannel[dir.ordinal()] = channel;
         setChanged();
+        invalidateNetwork();
     }
 
     // Called when the mode, redstone setting or incoming signal changes. Not saved, onLoad works it out again.
     public void updateCanRun(BlockState state) {
         int signal = level.getBestNeighborSignal(worldPosition);
-        for (Direction dir : Direction.values())
-            canThisSideRun[dir.ordinal()] = state.getValue(SIDES.get(dir)).extracts() && getRedstone(dir).allows(signal);
+        int active = 0;
+        for (Direction dir : Direction.values()) {
+            boolean allows = getRedstone(dir).allows(signal);
+            canThisSideRun[dir.ordinal()] = state.getValue(SIDES.get(dir)).extracts() && allows;
+            if (allows) active |= 1 << dir.ordinal();
+        }
         canRunState = state;
+        if (active != activeSides) invalidateNetwork(); // redstone decides which insert sides are targets
+        activeSides = active;
+    }
+
+    @Override
+    public void setBlockState(BlockState state) {
+        super.setBlockState(state);
+        invalidateAround();
+    }
+
+    @Override
+    public void setRemoved() {
+        super.setRemoved();
+        invalidateNetwork();
+        if (network != null) network.members.remove(this);
+        PipesCommand.LOADED.remove(this);
     }
 
     @Override
     public void onLoad() {
         super.onLoad();
-        if (!level.isClientSide()) updateCanRun(getBlockState());
+        invalidateAround();
+        if (!level.isClientSide()) {
+            PipesCommand.LOADED.add(this);
+            updateCanRun(getBlockState());
+        }
     }
 
     public boolean getCanThisSideRun(Direction dir) {
@@ -286,10 +370,15 @@ public class PipeBlockEntity extends BlockEntity {
         return null;
     }
 
-    // True if one of the side's type slots (starting at first) already holds this upgrade, skipping ignoreSlot.
+    // True if one of the side's type slots (starting at first) already holds this upgrade or one of the same type,
+    // skipping ignoreSlot.
     public static boolean hasTypeUpgrade(Container container, int first, ItemStack stack, int ignoreSlot) {
-        for (int i = first + 1; i < first + UPGRADES_PER_SIDE; i++)
-            if (i != ignoreSlot && ItemStack.isSameItem(container.getItem(i), stack)) return true;
+        for (int i = first + 1; i < first + UPGRADES_PER_SIDE; i++) {
+            ItemStack held = container.getItem(i);
+            if (i == ignoreSlot || held.isEmpty()) continue;
+            if (ItemStack.isSameItem(held, stack)) return true;
+            for (TagKey<Item> type : ModTags.Items.UPGRADE_COMPAT) if (held.is(type) && stack.is(type)) return true;
+        }
         return false;
     }
 
@@ -302,12 +391,12 @@ public class PipeBlockEntity extends BlockEntity {
         ServerConfig.Rates c = ServerConfig.base;
         for (int t = 0; t < ModItems.TIER_UPGRADES.size(); t++)
             if (upgrade(dir, 0).is(ModItems.TIER_UPGRADES.get(t).get())) c = ServerConfig.upgradeTiers.get(t);
-        return new Rates(c.transferRate().get(), ServerConfig.extractRecheckDelay.get(),
+        return new Rates(c.transferRate().get(),
                 c.itemTransferRate().get(), c.fluidTransferRate().get(), c.energyTransferRate().get());
     }
 
-    // Items always move, fluids and energy need their type upgrade (or creative).
-    public boolean movesType(Direction dir, Item type) {
+    // Items always move, every other type needs its type upgrade (or creative).
+    public boolean movesType(Direction dir, TagKey<Item> type) {
         if (isCreative(dir)) return true;
         for (int i = 1; i < UPGRADES_PER_SIDE; i++) if (upgrade(dir, i).is(type)) return true;
         return false;
@@ -346,75 +435,182 @@ public class PipeBlockEntity extends BlockEntity {
 
     // Each extracting side runs on its own timer, since upgrades give sides different rates.
     public static void serverTick(Level level, BlockPos pos, BlockState state, PipeBlockEntity be) {
+        long start = System.nanoTime();
+        tick(level, pos, state, be);
+        PipesCommand.nanos += System.nanoTime() - start;
+    }
+
+    private static void tick(Level level, BlockPos pos, BlockState state, PipeBlockEntity be) {
         long time = level.getGameTime();
         if (time == be.lastTickTime) return;
         be.lastTickTime = time;
         if (be.loadedWait != null) {
-            for (int i = 0; i < Math.min(be.loadedWait.length, 6); i++) be.nextExtract[i] = time + be.loadedWait[i];
+            for (int i = 0; i < Math.min(be.loadedWait.length, 6); i++) {
+                be.nextExtract[i] = time + be.loadedWait[i];
+                if (be.loadedWait[i] > be.getSpeed(Direction.values()[i])) {
+                    be.sleep[i] = be.loadedWait[i];
+                    be.blocked[i] = true; // the reason wasn't saved, so either kind of wake may end it
+                }
+            }
             be.loadedWait = null;
         }
         if (state != be.canRunState) be.updateCanRun(state); // a side's mode changed
-        List<Target> targets = null;
         for (Direction dir : Direction.values()) {
             int i = dir.ordinal();
             if (!be.getCanThisSideRun(dir) || time < be.nextExtract[i]) continue;
-            if (targets == null) targets = findTargets(level, pos);
+            List<Target> targets = be.targets();
             BlockPos src = pos.relative(dir);
-            Direction side = dir.getOpposite();
             int channel = be.getExtractChannel(dir);
             List<Target> dests = be.distribute(dir, targets.stream().filter(t -> t.channel == channel).toList());
             Rates rates = be.rates(dir);
             PipeFilter extractFilter = be.getFilter(dir, false);
             Map<PipeFilter.Entry, Integer> batches = new HashMap<>(); // per transfer, shared by every target
-            int moved = push(level, Capabilities.ItemHandler.BLOCK, src, side, dests, rates.items,
-                    (a, b, n, t) -> moveItems(level, src, a, b, extractFilter, t.filter, n, batches));
-            if (be.movesType(dir, ModItems.FLUID_UPGRADE.get()))
-                moved += push(level, Capabilities.FluidHandler.BLOCK, src, side, dests, rates.fluid,
-                        (a, b, n, t) -> moveFluids(a, b, extractFilter, t.filter, n, batches));
-            if (be.movesType(dir, ModItems.ENERGY_UPGRADE.get()))
-                moved += push(level, Capabilities.EnergyStorage.BLOCK, src, side, dests, rates.energy, (a, b, n, t) -> moveEnergy(a, b, n));
-            be.failedExtracts[i] = moved > 0 ? 0 : be.failedExtracts[i] + 1;
-            boolean pause = ServerConfig.enablePipeOptimizations.get() && be.failedExtracts[i] > ServerConfig.retriesBeforePausing.get();
-            be.nextExtract[i] = time + (pause ? rates.recheck : be.getSpeed(dir));
+            int moved = push(be, dir, Capabilities.ItemHandler.BLOCK, dests, rates.items,
+                    (a, b, n, t) -> moveItems(level, src, a, b, extractFilter, t.filter, t.pipe.refused(t.dir).items(), n, batches));
+            if (be.movesType(dir, ModTags.Items.FLUID_UPGRADE_COMPAT))
+                moved += push(be, dir, Capabilities.FluidHandler.BLOCK, dests, rates.fluid,
+                        (a, b, n, t) -> moveFluids(a, b, extractFilter, t.filter, t.pipe.refused(t.dir).fluids(), n, batches));
+            if (be.movesType(dir, ModTags.Items.ENERGY_UPGRADE_COMPAT))
+                moved += push(be, dir, Capabilities.EnergyStorage.BLOCK, dests, rates.energy, (a, b, n, t) -> moveEnergy(a, b, n));
+            be.lastExtract[i] = time;
+            PipesCommand.tries++;
+            if (moved > 0) PipesCommand.moves++;
+            be.nextExtract[i] = time + be.backoff(i, moved > 0, be.getSpeed(dir));
+            be.blocked[i] = be.sleep[i] > 0 && be.hasWork(dir, extractFilter);
         }
+    }
+
+    // Each failure doubles the wait (up to maxSleepTicks), a success goes straight back to normal speed.
+    private long backoff(int i, boolean moved, int speed) {
+        if (moved || !ServerConfig.enablePipeOptimizations.get()) sleep[i] = 0;
+        else sleep[i] = Math.min(ServerConfig.maxSleepTicks.get(), Math.max(sleep[i], speed) * 2);
+        return Math.max(speed, sleep[i]);
+    }
+
+    public int sleepTicks(Direction dir) {
+        return sleep[dir.ordinal()];
+    }
+
+    // Whether the source holds anything movable, so a failure was down to full targets.
+    private boolean hasWork(Direction dir, PipeFilter filter) {
+        IItemHandler items = neighbor(Capabilities.ItemHandler.BLOCK, dir);
+        if (items != null)
+            for (int i = 0; i < items.getSlots(); i++)
+                if (!items.getStackInSlot(i).isEmpty() && filter.allows(items.getStackInSlot(i))) return true;
+        if (movesType(dir, ModTags.Items.FLUID_UPGRADE_COMPAT)) {
+            IFluidHandler fluids = neighbor(Capabilities.FluidHandler.BLOCK, dir);
+            if (fluids != null)
+                for (int i = 0; i < fluids.getTanks(); i++)
+                    if (!fluids.getFluidInTank(i).isEmpty() && filter.allows(fluids.getFluidInTank(i))) return true;
+        }
+        if (movesType(dir, ModTags.Items.ENERGY_UPGRADE_COMPAT)) {
+            IEnergyStorage energy = neighbor(Capabilities.EnergyStorage.BLOCK, dir);
+            return energy != null && energy.getEnergyStored() > 0;
+        }
+        return false;
+    }
+
+    public void wake() {
+        wake(false);
+    }
+
+    private void wake(boolean onlyBlocked) {
+        if (isRemoved()) return;
+        for (Direction dir : Direction.values()) {
+            int i = dir.ordinal();
+            if (sleep[i] == 0 || onlyBlocked && !blocked[i]) continue;
+            sleep[i] = 0;
+            nextExtract[i] = Math.min(nextExtract[i], lastExtract[i] + getSpeed(dir));
+        }
+    }
+
+    Refused refused(Direction dir) {
+        int i = dir.ordinal();
+        if (refused[i] == null) refused[i] = new Refused(ItemStackLinkedSet.createTypeAndComponentsSet(), FluidStackLinkedSet.createTypeAndComponentsSet());
+        long now = level.getGameTime();
+        if (!ServerConfig.enablePipeOptimizations.get() || now - refusedSince[i] >= REFUSED_TICKS) {
+            refused[i].items().clear();
+            refused[i].fluids().clear();
+            refusedSince[i] = now;
+        }
+        return refused[i];
+    }
+
+    public void forgetRefused(@Nullable Direction dir) {
+        for (Direction d : Direction.values()) {
+            Refused r = refused[d.ordinal()];
+            if ((dir == null || d == dir) && r != null) {
+                r.items().clear();
+                r.fluids().clear();
+            }
+        }
+    }
+
+    public void wakeNetwork() {
+        if (network != null && level != null) network.wake(level.getGameTime());
+        else wake();
     }
 
     interface Mover<H> {
         int move(H from, @Nullable H to, int amount, Target target);
     }
 
-    private static <H> int push(Level level, BlockCapability<H, @Nullable Direction> cap, BlockPos src, Direction side,
+    private static <H> int push(PipeBlockEntity pipe, Direction dir, BlockCapability<H, @Nullable Direction> cap,
                                 List<Target> targets, int amount, Mover<H> mover) {
-        H from = level.getCapability(cap, src, side);
+        H from = pipe.neighbor(cap, dir);
         if (from == null) return 0;
+        BlockPos src = pipe.worldPosition.relative(dir);
         int left = amount;
         for (Target t : targets) {
             if (left <= 0) break;
-            if (!t.pos.equals(src)) left -= mover.move(from, level.getCapability(cap, t.pos, t.side), left, t);
+            if (!t.pos.equals(src)) left -= mover.move(from, t.pipe.neighbor(cap, t.dir), left, t);
         }
         return amount - left;
+    }
+
+    // Cached per side and type, NeoForge clears it when that block changes.
+    @SuppressWarnings("unchecked")
+    private <H> @Nullable H neighbor(BlockCapability<H, @Nullable Direction> cap, Direction dir) {
+        if (isRemoved() || !(level instanceof ServerLevel server)) return null;
+        var caches = (BlockCapabilityCache<H, @Nullable Direction>[]) capabilityCaches.computeIfAbsent(cap, c -> new BlockCapabilityCache[6]);
+        var cache = caches[dir.ordinal()];
+        if (cache == null) {
+            cache = BlockCapabilityCache.create(cap, server, worldPosition.relative(dir), dir.getOpposite(), () -> !isRemoved(), () -> {});
+            caches[dir.ordinal()] = cache;
+        }
+        return cache.getCapability();
     }
 
     // Moves up to amount items or fluids that pass this side's extract filter and the target's insert filter, one slot or
     // tank at a time so filter amounts apply: an extract entry moves at most that many per transfer (tracked in
     // batches across all targets), an insert entry fills the target only up to that many.
     private static int moveItems(Level level, BlockPos src, IItemHandler from, @Nullable IItemHandler to, PipeFilter extract,
-                                 PipeFilter insert, int amount, Map<PipeFilter.Entry, Integer> batches) {
+                                 PipeFilter insert, Set<ItemStack> refused, int amount, Map<PipeFilter.Entry, Integer> batches) {
         if (to == null) return 0;
         int moved = 0;
+        Map<PipeFilter.Entry, Integer> stocked = new HashMap<>();
+        ItemStack skipped = ItemStack.EMPTY; // cheap check before hashing
         for (int slot = 0; slot < from.getSlots() && moved < amount; slot++) {
             ItemStack stack = from.getStackInSlot(slot);
-            if (stack.isEmpty() || !extract.allows(stack) || !insert.allows(stack)) continue;
+            if (stack.isEmpty() || ItemStack.isSameItemSameComponents(stack, skipped)) continue;
+            if (refused.contains(stack)) {
+                skipped = stack.copyWithCount(1);
+                continue;
+            }
+            if (!extract.allows(stack) || !insert.allows(stack)) continue;
             int limit = amount - moved;
             int batch = extract.amount(stack);
             PipeFilter.Entry batchEntry = batch > 0 ? extract.match(stack) : null;
             if (batchEntry != null) limit = Math.min(limit, batch - batches.getOrDefault(batchEntry, 0));
             int stock = insert.amount(stack);
-            if (stock > 0) limit = Math.min(limit, stock - countItems(to, stack, insert));
+            PipeFilter.Entry stockEntry = stock > 0 ? insert.match(stack) : null;
+            if (stockEntry != null) limit = Math.min(limit, stock - stocked.computeIfAbsent(stockEntry, e -> countItems(to, e, insert)));
             if (limit <= 0) continue;
-            // Simulate first so only what the target takes leaves the source.
+            // Simulate first so only what the target takes leaves the source. Taking less than offered means it's out of room.
             ItemStack offered = from.extractItem(slot, limit, true);
+            if (offered.isEmpty()) continue;
             int fits = offered.getCount() - ItemHandlerHelper.insertItemStacked(to, offered, true).getCount();
+            if (fits < offered.getCount()) refused.add(offered.copyWithCount(1));
             if (fits <= 0) continue;
             ItemStack taken = from.extractItem(slot, fits, false);
             ItemStack left = ItemHandlerHelper.insertItemStacked(to, taken, false);
@@ -423,32 +619,39 @@ public class PipeBlockEntity extends BlockEntity {
             if (!left.isEmpty()) left = from.insertItem(slot, left, false);
             if (!left.isEmpty()) Block.popResource(level, src, left);
             if (batchEntry != null) batches.merge(batchEntry, done, Integer::sum);
+            if (stockEntry != null) stocked.merge(stockEntry, done, Integer::sum);
             moved += done;
         }
         return moved;
     }
 
     private static int moveFluids(IFluidHandler from, @Nullable IFluidHandler to, PipeFilter extract, PipeFilter insert,
-                                  int amount, Map<PipeFilter.Entry, Integer> batches) {
+                                  Set<FluidStack> refused, int amount, Map<PipeFilter.Entry, Integer> batches) {
         if (to == null) return 0;
         int moved = 0;
+        Map<PipeFilter.Entry, Integer> stocked = new HashMap<>();
         for (int tank = 0; tank < from.getTanks() && moved < amount; tank++) {
             FluidStack fluid = from.getFluidInTank(tank);
-            if (fluid.isEmpty() || !extract.allows(fluid) || !insert.allows(fluid)) continue;
+            if (fluid.isEmpty() || refused.contains(fluid) || !extract.allows(fluid) || !insert.allows(fluid)) continue;
             int limit = amount - moved;
             int batch = extract.amount(fluid);
             PipeFilter.Entry batchEntry = batch > 0 ? extract.match(fluid) : null;
             if (batchEntry != null) limit = Math.min(limit, batch - batches.getOrDefault(batchEntry, 0));
             int stock = insert.amount(fluid);
-            if (stock > 0) limit = Math.min(limit, stock - countFluids(to, fluid, insert));
+            PipeFilter.Entry stockEntry = stock > 0 ? insert.match(fluid) : null;
+            if (stockEntry != null) limit = Math.min(limit, stock - stocked.computeIfAbsent(stockEntry, e -> countFluids(to, e, insert)));
             if (limit <= 0) continue;
-            int fits = to.fill(from.drain(fluid.copyWithAmount(limit), IFluidHandler.FluidAction.SIMULATE), IFluidHandler.FluidAction.SIMULATE);
+            FluidStack offered = from.drain(fluid.copyWithAmount(limit), IFluidHandler.FluidAction.SIMULATE);
+            if (offered.isEmpty()) continue;
+            int fits = to.fill(offered, IFluidHandler.FluidAction.SIMULATE);
+            if (fits < offered.getAmount()) refused.add(offered.copyWithAmount(1));
             if (fits <= 0) continue;
             FluidStack drained = from.drain(fluid.copyWithAmount(fits), IFluidHandler.FluidAction.EXECUTE);
             int done = to.fill(drained, IFluidHandler.FluidAction.EXECUTE);
             if (done < drained.getAmount()) // put back what the target refused after all
                 from.fill(drained.copyWithAmount(drained.getAmount() - done), IFluidHandler.FluidAction.EXECUTE);
             if (batchEntry != null) batches.merge(batchEntry, done, Integer::sum);
+            if (stockEntry != null) stocked.merge(stockEntry, done, Integer::sum);
             moved += done;
         }
         return moved;
@@ -464,9 +667,8 @@ public class PipeBlockEntity extends BlockEntity {
         return done;
     }
 
-    // How much the handler holds of everything that matches the same filter entry as this item or fluid.
-    private static int countItems(IItemHandler handler, ItemStack stack, PipeFilter filter) {
-        PipeFilter.Entry entry = filter.match(stack);
+    // How much the handler holds of everything that matches this filter entry.
+    private static int countItems(IItemHandler handler, PipeFilter.Entry entry, PipeFilter filter) {
         int total = 0;
         for (int i = 0; i < handler.getSlots(); i++) {
             ItemStack held = handler.getStackInSlot(i);
@@ -475,8 +677,7 @@ public class PipeBlockEntity extends BlockEntity {
         return total;
     }
 
-    private static int countFluids(IFluidHandler handler, FluidStack fluid, PipeFilter filter) {
-        PipeFilter.Entry entry = filter.match(fluid);
+    private static int countFluids(IFluidHandler handler, PipeFilter.Entry entry, PipeFilter filter) {
         int total = 0;
         for (int i = 0; i < handler.getTanks(); i++) {
             FluidStack held = handler.getFluidInTank(i);
@@ -485,25 +686,56 @@ public class PipeBlockEntity extends BlockEntity {
         return total;
     }
 
-    record Target(BlockPos pos, Direction side, int channel, PipeFilter filter) {}
+    public Object networkId() {
+        if (network == null || !network.valid) targets();
+        return network;
+    }
 
-    // Cache the network per pipe if big networks lag
-    private static List<Target> findTargets(Level level, BlockPos start) {
+    public record NetworkInfo(Object id, String dimension, BlockPos at, int pipes, int targets, int extractSides, int sleeping, int blocked) {}
+
+    public NetworkInfo networkInfo() {
+        Object id = networkId();
+        int targets = 0, extracting = 0, sleeping = 0, blockedSides = 0;
+        for (PipeBlockEntity pipe : network.members) {
+            for (Direction dir : Direction.values()) {
+                PipeBlock.Side side = pipe.getBlockState().getValue(SIDES.get(dir));
+                if (side.inserts()) targets++;
+                if (!side.extracts()) continue;
+                extracting++;
+                if (pipe.sleep[dir.ordinal()] > 0) sleeping++;
+                if (pipe.sleep[dir.ordinal()] > 0 && pipe.blocked[dir.ordinal()]) blockedSides++;
+            }
+        }
+        return new NetworkInfo(id, level.dimension().location().toString(), worldPosition, network.members.size(), targets, extracting, sleeping, blockedSides);
+    }
+
+    record Target(PipeBlockEntity pipe, Direction dir, BlockPos pos, int channel, PipeFilter filter) {}
+
+    // Every insert side in the network, closest first.
+    private List<Target> findTargets() {
+        boolean fresh = network == null || !network.valid;
+        if (fresh) {
+            network = new Network();
+            PipesCommand.rebuilds++;
+        }
         List<Target> out = new ArrayList<>();
-        Set<BlockPos> seen = new HashSet<>(List.of(start));
+        Set<BlockPos> seen = new HashSet<>(List.of(worldPosition));
         ArrayDeque<BlockPos> queue = new ArrayDeque<>(seen);
         while (!queue.isEmpty()) {
             BlockPos p = queue.poll();
             BlockState s = level.getBlockState(p);
             if (!(s.getBlock() instanceof PipeBlock) || !(level.getBlockEntity(p) instanceof PipeBlockEntity be)) continue;
+            if (fresh) {
+                be.network = network;
+                network.members.add(be);
+            }
             for (Direction dir : Direction.values()) {
                 PipeBlock.Side side = s.getValue(SIDES.get(dir));
                 BlockPos n = p.relative(dir);
-                if (!level.isLoaded(n)) continue;
                 if (side == PipeBlock.Side.PIPE) {
-                    if (seen.add(n)) queue.add(n);
+                    if (level.isLoaded(n) && seen.add(n)) queue.add(n);
                 } else if (side.inserts() && be.isActive(dir)) {
-                    out.add(new Target(n, dir.getOpposite(), be.getInsertChannel(dir), be.getFilter(dir, true)));
+                    out.add(new Target(be, dir, n, be.getInsertChannel(dir), be.getFilter(dir, true)));
                 }
             }
         }

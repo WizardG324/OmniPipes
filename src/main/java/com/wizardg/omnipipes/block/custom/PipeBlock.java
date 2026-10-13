@@ -25,6 +25,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
@@ -318,7 +319,21 @@ public class PipeBlock extends Block implements EntityBlock {
     // Redstone signal changes arrive here, so the pipe can re-check which sides may run.
     @Override
     protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block block, BlockPos neighborPos, boolean movedByPiston) {
-        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof PipeBlockEntity be) be.updateCanRun(state);
+        if (level.isClientSide() || !(level.getBlockEntity(pos) instanceof PipeBlockEntity be)) return;
+        be.updateCanRun(state);
+        be.forgetRefused(null);
+        be.wake();
+        be.wakeNetwork();
+    }
+
+    // A neighboring container changed. At an insert side it may have made room, which wakes the network.
+    @Override
+    public void onNeighborChange(BlockState state, LevelReader level, BlockPos pos, BlockPos neighbor) {
+        if (level.isClientSide() || !(level.getBlockEntity(pos) instanceof PipeBlockEntity be)) return;
+        Direction dir = Direction.getNearest(neighbor.getX() - pos.getX(), neighbor.getY() - pos.getY(), neighbor.getZ() - pos.getZ());
+        be.forgetRefused(dir);
+        if (state.getValue(SIDES.get(dir)).inserts()) be.wakeNetwork();
+        else be.wake();
     }
 
     // Breaking the pipe drops its upgrades.

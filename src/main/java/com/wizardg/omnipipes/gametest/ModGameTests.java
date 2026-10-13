@@ -83,23 +83,133 @@ public class ModGameTests {
         helper.succeedWhen(() -> helper.assertTrue(diamonds(helper, 2) == 5, "both side should receive"));
     }
 
-    // Source starts empty, so the first extract fails and the pipe should wait extractRecheckDelay (50) ticks.
-    // An empty source fails the first try and each retry at normal speed, then the side pauses for the recheck
-    // delay: diamonds added after the last retry wait out the pause, not just one normal step.
+    // An empty source makes the side sleep, filling it wakes the side early.
     @GameTest(template = "empty", timeoutTicks = 200)
-    public static void extractRecheckDelay(GameTestHelper helper) {
+    public static void sleepAndWake(GameTestHelper helper) {
         pipeRow(helper, Side.EXTRACT, Side.INSERT);
         BarrelBlockEntity source = helper.<BarrelBlockEntity>getBlockEntity(new BlockPos(1, 1, 2));
         source.clearContent();
-        int speed = ServerConfig.base.transferRate().get();
-        int lastRetry = ServerConfig.retriesBeforePausing.get() * speed;
-        int pause = ServerConfig.extractRecheckDelay.get();
         helper.startSequence()
-                .thenIdle(lastRetry + 5)
+                .thenIdle(100) // tries at 0 and 80, the next at 180, or 120 when woken
                 .thenExecute(() -> source.setItem(0, new ItemStack(Items.DIAMOND, 5)))
-                .thenExecuteFor(pause - 10, () -> helper.assertTrue(diamonds(helper, 1) == 5, "pipe should be paused"))
-                .thenWaitUntil(() -> helper.assertTrue(diamonds(helper, 2) == 5, "pipe should resume after the pause"))
+                .thenIdle(25)
+                .thenExecute(() -> helper.assertTrue(diamonds(helper, 2) == 5, "the woken side should transfer"))
                 .thenSucceed();
+    }
+
+    // Like sleepAndWake, with the source above the pipe.
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void sourceAboveWakes(GameTestHelper helper) {
+        pipeRow(helper, Side.NONE, Side.INSERT);
+        BlockPos pipe = new BlockPos(1, 1, 1), above = new BlockPos(1, 2, 1);
+        helper.<BarrelBlockEntity>getBlockEntity(new BlockPos(1, 1, 2)).clearContent();
+        helper.setBlock(above, Blocks.BARREL);
+        helper.setBlock(pipe, helper.getBlockState(pipe).setValue(PipeBlock.SIDES.get(Direction.UP), Side.EXTRACT));
+        BarrelBlockEntity source = helper.<BarrelBlockEntity>getBlockEntity(above);
+        helper.startSequence()
+                .thenIdle(100) // tries at 0 and 80, the next at 180, or 120 when woken
+                .thenExecute(() -> source.setItem(0, new ItemStack(Items.DIAMOND, 5)))
+                .thenIdle(25)
+                .thenExecute(() -> helper.assertTrue(diamonds(helper, 2) == 5, "the side under the source should wake"))
+                .thenSucceed();
+    }
+
+    // A full target makes the extracting side sleep, emptying a slot of it wakes the network.
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void targetWakesNetwork(GameTestHelper helper) {
+        pipeRow(helper, Side.EXTRACT, Side.INSERT);
+        BarrelBlockEntity target = helper.<BarrelBlockEntity>getBlockEntity(new BlockPos(2, 1, 2));
+        for (int slot = 0; slot < target.getContainerSize(); slot++) target.setItem(slot, new ItemStack(Items.STONE, 64));
+        helper.startSequence()
+                .thenIdle(100)
+                .thenExecute(() -> target.removeItem(0, 64))
+                .thenIdle(25)
+                .thenExecute(() -> helper.assertTrue(diamonds(helper, 2) == 5, "the woken network should transfer"))
+                .thenSucceed();
+    }
+
+    // Network wakes from the busy first pipe don't reset the third pipe's sleep, since its source is empty.
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void emptySourceKeepsSleeping(GameTestHelper helper) {
+        pipeRow(helper, Side.EXTRACT, Side.INSERT, Side.EXTRACT);
+        helper.<BarrelBlockEntity>getBlockEntity(new BlockPos(1, 1, 2)).setItem(0, new ItemStack(Items.DIAMOND, 64));
+        PipeBlockEntity idle = helper.<PipeBlockEntity>getBlockEntity(new BlockPos(3, 1, 1));
+        helper.runAfterDelay(190, () -> {
+            helper.assertTrue(diamonds(helper, 2) > 0, "the first pipe should be busy");
+            helper.assertTrue(idle.sleepTicks(Direction.SOUTH) == ServerConfig.maxSleepTicks.get(), "the empty side should reach the longest sleep");
+            helper.succeed();
+        });
+    }
+
+    // Moving the second barrel to the red channel mid-run sends the rest to the third barrel.
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void networkCacheUpdates(GameTestHelper helper) {
+        pipeRow(helper, Side.EXTRACT, Side.INSERT, Side.INSERT);
+        helper.<BarrelBlockEntity>getBlockEntity(new BlockPos(1, 1, 2)).setItem(0, new ItemStack(Items.DIAMOND, 16));
+        boolean[] switched = {false};
+        helper.onEachTick(() -> {
+            if (switched[0] || diamonds(helper, 2) == 0) return;
+            switched[0] = true;
+            helper.<PipeBlockEntity>getBlockEntity(new BlockPos(2, 1, 1)).setInsertChannel(Direction.SOUTH, DyeColor.RED.getId());
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(diamonds(helper, 2) < 16 && diamonds(helper, 3) == 16 - diamonds(helper, 2), "the rest should reach the third barrel");
+            helper.assertTrue(diamonds(helper, 1) == 0, "the source should be empty");
+        });
+    }
+
+    // Breaking the middle pipe splits the network, putting it back merges it again.
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void networkSplitMerge(GameTestHelper helper) {
+        pipeRow(helper, Side.EXTRACT, Side.NONE, Side.INSERT);
+        helper.<BarrelBlockEntity>getBlockEntity(new BlockPos(1, 1, 2)).setItem(0, new ItemStack(Items.DIAMOND, 16));
+        BlockPos middle = new BlockPos(2, 1, 1);
+        int batch = ServerConfig.base.itemTransferRate().get();
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(diamonds(helper, 3) == batch, "the first batch should arrive"))
+                .thenExecute(() -> helper.setBlock(middle, Blocks.AIR))
+                .thenIdle(90)
+                .thenExecute(() -> helper.assertTrue(diamonds(helper, 3) == batch, "a split network should not reach the far barrel"))
+                .thenExecute(() -> helper.setBlock(middle, ModBlocks.PIPE.get().defaultBlockState()
+                        .setValue(PipeBlock.SIDES.get(Direction.WEST), Side.PIPE).setValue(PipeBlock.SIDES.get(Direction.EAST), Side.PIPE)))
+                .thenWaitUntil(() -> helper.assertTrue(diamonds(helper, 3) == 16, "the merged network should deliver the rest"))
+                .thenSucceed();
+    }
+
+    // A slot holding less than the transfer amount doesn't stop the rest of that item moving from later slots.
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void smallSlotKeepsGoing(GameTestHelper helper) {
+        pipeRow(helper, Side.EXTRACT, Side.INSERT);
+        BarrelBlockEntity source = helper.<BarrelBlockEntity>getBlockEntity(new BlockPos(1, 1, 2));
+        source.setItem(0, new ItemStack(Items.DIAMOND, 1));
+        source.setItem(1, new ItemStack(Items.DIAMOND, 64));
+        int batch = ServerConfig.base.itemTransferRate().get();
+        helper.runAfterDelay(5, () -> {
+            helper.assertTrue(diamonds(helper, 2) == batch, "the first transfer should move a full batch");
+            helper.succeed();
+        });
+    }
+
+    // The network summary counts this row right, and every /omnipipes subcommand runs.
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void diagnostics(GameTestHelper helper) {
+        pipeRow(helper, Side.EXTRACT, Side.INSERT, Side.INSERT);
+        helper.runAfterDelay(2, () -> {
+            PipeBlockEntity.NetworkInfo info = helper.<PipeBlockEntity>getBlockEntity(new BlockPos(2, 1, 1)).networkInfo();
+            helper.assertTrue(info.pipes() == 3 && info.targets() == 2 && info.extractSides() == 1, "network summary should match the row: " + info);
+            var server = helper.getLevel().getServer();
+            var source = server.createCommandSourceStack().withLevel(helper.getLevel());
+            BlockPos at = helper.absolutePos(new BlockPos(1, 1, 1));
+            try {
+                var dispatcher = server.getCommands().getDispatcher();
+                helper.assertTrue(dispatcher.execute("omnipipes stats", source) > 0, "stats should see loaded pipes");
+                helper.assertTrue(dispatcher.execute("omnipipes networks", source) > 0, "networks should list this one");
+                helper.assertTrue(dispatcher.execute("omnipipes network " + at.getX() + " " + at.getY() + " " + at.getZ(), source) == 1, "network should find the pipe");
+            } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+                throw new RuntimeException(e);
+            }
+            helper.succeed();
+        });
     }
 
     // North has a plate (insert), up has a plain arm, the rest is just the 4px core.
