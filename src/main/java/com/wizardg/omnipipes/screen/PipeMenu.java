@@ -68,7 +68,7 @@ public class PipeMenu extends AbstractContainerMenu {
 
     public PipeMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf extraData) {
         this(containerId, inventory, extraData.readBlockPos(), extraData.readEnum(Direction.class), null,
-                readSideData(extraData), new SimpleContainerData(5 + GRID_COLS * GRID_ROWS), new SimpleContainer(6 * UPGRADE_SLOTS),
+                readSideData(extraData), new SimpleContainerData(5 + 2 * GRID_COLS * GRID_ROWS), new SimpleContainer(6 * UPGRADE_SLOTS),
                 new SimpleContainer(GRID_COLS * GRID_ROWS));
     }
 
@@ -135,9 +135,16 @@ public class PipeMenu extends AbstractContainerMenu {
         return AMOUNT_BASE + filterSlot * 4 + (up ? 0 : 1) + (byTen ? 2 : 0);
     }
 
-    // Amount set on a visible filter slot (0-17), 0 if none.
+    // Amount set on a visible filter slot (0-17), 0 if none. Menu data syncs as shorts, so each amount comes in two halves.
     public int amount(int filterSlot) {
-        return viewData.get(5 + filterSlot);
+        return (viewData.get(6 + filterSlot * 2) & 0xFFFF) << 16 | viewData.get(5 + filterSlot * 2) & 0xFFFF;
+    }
+
+    // Typed into a visible filter slot (middle click), see SetFilterAmountPayload.
+    public void setAmount(int filterSlot, int amount) {
+        int index = scroll * GRID_COLS + filterSlot;
+        if (be != null && filterSlot >= 0 && filterSlot < GRID_COLS * GRID_ROWS && index < filter().entries().size())
+            filter().setAmount(index, amount);
     }
 
     public PipeBlock.Side mode() {
@@ -202,8 +209,9 @@ public class PipeMenu extends AbstractContainerMenu {
             int id = buttonId - AMOUNT_BASE;
             int index = scroll * GRID_COLS + id / 4;
             if (index >= filter().entries().size()) return false;
-            int change = (id % 2 == 0 ? 1 : -1) * ((id & 2) != 0 ? 10 : 1);
-            filter().setAmount(index, filter().entries().get(index).amount() + change);
+            PipeFilter.Entry entry = filter().entries().get(index);
+            int change = (id % 2 == 0 ? 1 : -1) * ((id & 2) != 0 ? 10 : 1) * PipeFilter.amountStep(entry.stack());
+            filter().setAmount(index, (long) entry.amount() + change);
             return true;
         }
         int step = buttonId % 2 == 0 ? 1 : -1;
@@ -229,7 +237,8 @@ public class PipeMenu extends AbstractContainerMenu {
         return true;
     }
 
-    // Filter slots: clicking with an item sets a copy of it, right click clears, nothing is ever taken or placed.
+    // Filter slots: clicking with an item sets a copy of it, right click with a bucket, tank, source jar or battery sets what's inside,
+    // any other right click clears. Nothing is ever taken or placed.
     @Override
     public void clicked(int slotIndex, int buttonNum, ClickType input, Player player) {
         if (slotIndex < GHOST_START || slotIndex >= slots.size()) {
@@ -238,7 +247,9 @@ public class PipeMenu extends AbstractContainerMenu {
         }
         if (be == null || input != ClickType.PICKUP) return;
         int slot = slotIndex - GHOST_START;
-        if (buttonNum == 1) {
+        ItemStack contents = buttonNum == 1 ? PipeFilter.contentsOf(getCarried()) : ItemStack.EMPTY;
+        if (!contents.isEmpty()) setFilterSlot(slot, contents);
+        else if (buttonNum == 1) {
             filter().remove(scroll * GRID_COLS + slot);
             scroll = Mth.clamp(scroll, 0, maxScroll());
         } else setFilterSlot(slot, getCarried());
@@ -277,7 +288,7 @@ public class PipeMenu extends AbstractContainerMenu {
     }
 
     // Server side values for the filter view: 0 = insert tab, 1 = scroll, 2 = entry count, 3 = whitelist,
-    // 4 = match components, 5 = amounts of the shown entries.
+    // 4 = match components, 5 on = amounts of the shown entries, low and high 16 bits.
     private class ViewData implements ContainerData {
         @Override
         public int get(int index) {
@@ -288,9 +299,10 @@ public class PipeMenu extends AbstractContainerMenu {
                 case 3 -> filter().isWhitelist() ? 1 : 0;
                 case 4 -> filter().matchesComponents() ? 1 : 0;
                 default -> {
-                    int entry = scroll * GRID_COLS + index - 5;
+                    int entry = scroll * GRID_COLS + (index - 5) / 2;
                     var entries = filter().entries();
-                    yield entry < entries.size() ? entries.get(entry).amount() : 0;
+                    int amount = entry < entries.size() ? entries.get(entry).amount() : 0;
+                    yield (index - 5) % 2 == 0 ? amount & 0xFFFF : amount >>> 16;
                 }
             };
         }
@@ -300,7 +312,7 @@ public class PipeMenu extends AbstractContainerMenu {
 
         @Override
         public int getCount() {
-            return 5 + GRID_COLS * GRID_ROWS;
+            return 5 + 2 * GRID_COLS * GRID_ROWS;
         }
     }
 

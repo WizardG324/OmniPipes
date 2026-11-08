@@ -1,8 +1,11 @@
 package com.wizardg.omnipipes.block.entity;
 
 import com.wizardg.omnipipes.block.ModBlockEntities;
+import com.wizardg.omnipipes.OmniPipes;
 import com.wizardg.omnipipes.block.custom.PipeBlock;
 import com.wizardg.omnipipes.command.PipesCommand;
+import com.wizardg.omnipipes.compat.ars.ArsCompat;
+import com.wizardg.omnipipes.compat.mekanism.MekanismCompat;
 import com.wizardg.omnipipes.config.ServerConfig;
 import com.wizardg.omnipipes.item.ModItems;
 import com.wizardg.omnipipes.util.ModTags;
@@ -81,8 +84,8 @@ public class PipeBlockEntity extends BlockEntity {
         }
     };
 
-    public record Rates(int ticks, int items, int fluid, int energy) {}
-    private static final Rates CREATIVE = new Rates(1, Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    public record Rates(int ticks, int items, int fluid, int energy, int chemical, int source) {}
+    private static final Rates CREATIVE = new Rates(1, Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE);
 
     /** Continue enums after the last one, to not mess up pre-existing worlds */
     public enum RedstoneMode {
@@ -131,8 +134,16 @@ public class PipeBlockEntity extends BlockEntity {
         if (network == null || !network.valid || cachedFor != network) {
             cachedTargets = findTargets();
             cachedFor = network;
+            targetsByChannel.clear();
         }
         return cachedTargets;
+    }
+
+    private final Map<Integer, List<Target>> targetsByChannel = new HashMap<>();
+
+    private List<Target> targets(int channel) {
+        List<Target> all = targets();
+        return targetsByChannel.computeIfAbsent(channel, c -> all.stream().filter(t -> t.channel == c).toList());
     }
 
     private void invalidateNetwork() {
@@ -389,10 +400,16 @@ public class PipeBlockEntity extends BlockEntity {
     public Rates rates(Direction dir) {
         if (isCreative(dir)) return CREATIVE;
         ServerConfig.Rates c = ServerConfig.base;
-        for (int t = 0; t < ModItems.TIER_UPGRADES.size(); t++)
-            if (upgrade(dir, 0).is(ModItems.TIER_UPGRADES.get(t).get())) c = ServerConfig.upgradeTiers.get(t);
+        var chemical = ServerConfig.chemicalBase;
+        var source = ServerConfig.sourceBase;
+        for (int t = 0; t < ModItems.TIER_UPGRADES.size(); t++) {
+            if (!upgrade(dir, 0).is(ModItems.TIER_UPGRADES.get(t).get())) continue;
+            c = ServerConfig.upgradeTiers.get(t);
+            chemical = ServerConfig.chemicalTiers.get(t);
+            source = ServerConfig.sourceTiers.get(t);
+        }
         return new Rates(c.transferRate().get(),
-                c.itemTransferRate().get(), c.fluidTransferRate().get(), c.energyTransferRate().get());
+                c.itemTransferRate().get(), c.fluidTransferRate().get(), c.energyTransferRate().get(), chemical.get(), source.get());
     }
 
     // Items always move, every other type needs its type upgrade (or creative).
@@ -457,11 +474,14 @@ public class PipeBlockEntity extends BlockEntity {
         if (state != be.canRunState) be.updateCanRun(state); // a side's mode changed
         for (Direction dir : Direction.values()) {
             int i = dir.ordinal();
-            if (!be.getCanThisSideRun(dir) || time < be.nextExtract[i]) continue;
-            List<Target> targets = be.targets();
-            BlockPos src = pos.relative(dir);
+            if (!be.getCanThisSideRun(dir)) continue;
             int channel = be.getExtractChannel(dir);
-            List<Target> dests = be.distribute(dir, targets.stream().filter(t -> t.channel == channel).toList());
+            // Heat skips the timer, it moves every tick.
+            if (OmniPipes.MEKANISM_LOADED && be.movesType(dir, ModTags.Items.HEAT_UPGRADE_COMPAT))
+                MekanismCompat.moveHeat(be, dir, be.targets(channel));
+            if (time < be.nextExtract[i]) continue;
+            BlockPos src = pos.relative(dir);
+            List<Target> dests = be.distribute(dir, be.targets(channel));
             Rates rates = be.rates(dir);
             PipeFilter extractFilter = be.getFilter(dir, false);
             Map<PipeFilter.Entry, Integer> batches = new HashMap<>(); // per transfer, shared by every target
@@ -471,7 +491,11 @@ public class PipeBlockEntity extends BlockEntity {
                 moved += push(be, dir, Capabilities.FluidHandler.BLOCK, dests, rates.fluid,
                         (a, b, n, t) -> moveFluids(a, b, extractFilter, t.filter, t.pipe.refused(t.dir).fluids(), n, batches));
             if (be.movesType(dir, ModTags.Items.ENERGY_UPGRADE_COMPAT))
-                moved += push(be, dir, Capabilities.EnergyStorage.BLOCK, dests, rates.energy, (a, b, n, t) -> moveEnergy(a, b, n));
+                moved += push(be, dir, Capabilities.EnergyStorage.BLOCK, dests, rates.energy, (a, b, n, t) -> moveEnergy(a, b, extractFilter, t.filter, n, batches));
+            if (OmniPipes.MEKANISM_LOADED && be.movesType(dir, ModTags.Items.CHEMICAL_UPGRADE_COMPAT))
+                moved += MekanismCompat.pushChemicals(be, dir, dests, rates.chemical, extractFilter, batches);
+            if (OmniPipes.ARS_NOUVEAU_LOADED && be.movesType(dir, ModTags.Items.SOURCE_UPGRADE_COMPAT))
+                moved += ArsCompat.pushSource(be, dir, dests, rates.source, extractFilter, batches);
             be.lastExtract[i] = time;
             PipesCommand.tries++;
             if (moved > 0) PipesCommand.moves++;
@@ -505,9 +529,10 @@ public class PipeBlockEntity extends BlockEntity {
         }
         if (movesType(dir, ModTags.Items.ENERGY_UPGRADE_COMPAT)) {
             IEnergyStorage energy = neighbor(Capabilities.EnergyStorage.BLOCK, dir);
-            return energy != null && energy.getEnergyStored() > 0;
+            if (energy != null && energy.getEnergyStored() > 0 && filter.allowsEnergy()) return true;
         }
-        return false;
+        if (OmniPipes.ARS_NOUVEAU_LOADED && movesType(dir, ModTags.Items.SOURCE_UPGRADE_COMPAT) && ArsCompat.hasSource(this, dir, filter)) return true;
+        return OmniPipes.MEKANISM_LOADED && movesType(dir, ModTags.Items.CHEMICAL_UPGRADE_COMPAT) && MekanismCompat.hasChemical(this, dir, filter);
     }
 
     public void wake() {
@@ -551,11 +576,11 @@ public class PipeBlockEntity extends BlockEntity {
         else wake();
     }
 
-    interface Mover<H> {
+    public interface Mover<H> {
         int move(H from, @Nullable H to, int amount, Target target);
     }
 
-    private static <H> int push(PipeBlockEntity pipe, Direction dir, BlockCapability<H, @Nullable Direction> cap,
+    public static <H> int push(PipeBlockEntity pipe, Direction dir, BlockCapability<H, @Nullable Direction> cap,
                                 List<Target> targets, int amount, Mover<H> mover) {
         H from = pipe.neighbor(cap, dir);
         if (from == null) return 0;
@@ -570,7 +595,7 @@ public class PipeBlockEntity extends BlockEntity {
 
     // Cached per side and type, NeoForge clears it when that block changes.
     @SuppressWarnings("unchecked")
-    private <H> @Nullable H neighbor(BlockCapability<H, @Nullable Direction> cap, Direction dir) {
+    public <H> @Nullable H neighbor(BlockCapability<H, @Nullable Direction> cap, Direction dir) {
         if (isRemoved() || !(level instanceof ServerLevel server)) return null;
         var caches = (BlockCapabilityCache<H, @Nullable Direction>[]) capabilityCaches.computeIfAbsent(cap, c -> new BlockCapabilityCache[6]);
         var cache = caches[dir.ordinal()];
@@ -657,13 +682,20 @@ public class PipeBlockEntity extends BlockEntity {
         return moved;
     }
 
-    private static int moveEnergy(IEnergyStorage from, @Nullable IEnergyStorage to, int amount) {
-        if (to == null || !from.canExtract() || !to.canReceive()) return 0;
+    // An energy entry caps each transfer on extract and fills the target only up to its amount on insert.
+    private static int moveEnergy(IEnergyStorage from, @Nullable IEnergyStorage to, PipeFilter extract, PipeFilter insert, int amount,
+                                  Map<PipeFilter.Entry, Integer> batches) {
+        if (to == null || !from.canExtract() || !to.canReceive() || !extract.allowsEnergy() || !insert.allowsEnergy()) return 0;
+        PipeFilter.Entry batchEntry = extract.energyAmount() > 0 ? extract.matchEnergy() : null;
+        if (batchEntry != null) amount = Math.min(amount, extract.energyAmount() - batches.getOrDefault(batchEntry, 0));
+        if (insert.energyAmount() > 0) amount = Math.min(amount, insert.energyAmount() - to.getEnergyStored());
+        if (amount <= 0) return 0;
         int fits = to.receiveEnergy(from.extractEnergy(amount, true), true);
         if (fits <= 0) return 0;
         int taken = from.extractEnergy(fits, false);
         int done = to.receiveEnergy(taken, false);
         if (done < taken) from.receiveEnergy(taken - done, false); // put back what the target refused after all
+        if (batchEntry != null) batches.merge(batchEntry, done, Integer::sum);
         return done;
     }
 
@@ -709,7 +741,7 @@ public class PipeBlockEntity extends BlockEntity {
         return new NetworkInfo(id, level.dimension().location().toString(), worldPosition, network.members.size(), targets, extracting, sleeping, blockedSides);
     }
 
-    record Target(PipeBlockEntity pipe, Direction dir, BlockPos pos, int channel, PipeFilter filter) {}
+    public record Target(PipeBlockEntity pipe, Direction dir, BlockPos pos, int channel, PipeFilter filter) {}
 
     // Every insert side in the network, closest first.
     private List<Target> findTargets() {

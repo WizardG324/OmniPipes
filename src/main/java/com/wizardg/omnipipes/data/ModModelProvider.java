@@ -30,7 +30,8 @@ public class ModModelProvider extends BlockStateProvider {
         ModelFile dyedItem = pipeModels("_dyed", "cable_dyed");
 
         ModItems.TIER_UPGRADES.forEach(tier -> itemModels().basicItem(tier.get()));
-        for (var upgrade : List.of(ModItems.CREATIVE_UPGRADE, ModItems.FLUID_UPGRADE, ModItems.ENERGY_UPGRADE, ModItems.TAG_FILTER))
+        for (var upgrade : List.of(ModItems.CREATIVE_UPGRADE, ModItems.FLUID_UPGRADE, ModItems.ENERGY_UPGRADE,
+                ModItems.CHEMICAL_UPGRADE, ModItems.HEAT_UPGRADE, ModItems.SOURCE_UPGRADE, ModItems.TAG_FILTER))
             itemModels().basicItem(upgrade.get());
         itemModels().withExistingParent(ModItems.PIPE_CONFIGURATOR.getId().getPath(), mcLoc("item/handheld")) // held like a tool
                 .texture("layer0", modLoc("item/pipe_configurator"));

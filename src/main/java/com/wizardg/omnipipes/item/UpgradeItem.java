@@ -1,5 +1,6 @@
 package com.wizardg.omnipipes.item;
 
+import com.wizardg.omnipipes.OmniPipes;
 import com.wizardg.omnipipes.block.custom.PipeBlock;
 import com.wizardg.omnipipes.config.ServerConfig;
 import com.wizardg.omnipipes.util.ModFormat;
@@ -36,6 +37,10 @@ public class UpgradeItem extends Item {
             tooltip.add(Component.translatable(key + "speed", value(rates.transferRate())).withStyle(ChatFormatting.GRAY));
             tooltip.add(Component.translatable(key + "amounts", value(rates.itemTransferRate()),
                     ModFormat.decimal(value(rates.fluidTransferRate()) / 1000.0), ModFormat.compact(value(rates.energyTransferRate()))).withStyle(ChatFormatting.GRAY));
+            if (OmniPipes.MEKANISM_LOADED)
+                tooltip.add(Component.translatable(key + "chemical_amount", ModFormat.decimal(value(ServerConfig.chemicalTiers.get(tier)) / 1000.0)).withStyle(ChatFormatting.GRAY));
+            if (OmniPipes.ARS_NOUVEAU_LOADED)
+                tooltip.add(Component.translatable(key + "source_amount", ModFormat.compact(value(ServerConfig.sourceTiers.get(tier)))).withStyle(ChatFormatting.GRAY));
         } else {
             tooltip.add(Component.translatable(key + "upgrade." + stack.getItem().builtInRegistryHolder().key().location().getPath()).withStyle(ChatFormatting.GRAY));
         }

@@ -5,6 +5,7 @@ import com.wizardg.omnipipes.block.ModBlocks;
 import com.wizardg.omnipipes.block.custom.PipeBlock;
 import com.wizardg.omnipipes.block.custom.PipeBlock.Side;
 import com.wizardg.omnipipes.block.entity.PipeBlockEntity;
+import com.wizardg.omnipipes.block.entity.PipeFilter;
 import com.wizardg.omnipipes.block.entity.PipeBlockEntity.RedstoneMode;
 import com.wizardg.omnipipes.config.ServerConfig;
 import com.wizardg.omnipipes.item.ModDataComponents;
@@ -12,8 +13,6 @@ import com.wizardg.omnipipes.item.ModItems;
 import com.wizardg.omnipipes.screen.PipeMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.Holder;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -447,9 +446,24 @@ public class ModGameTests {
         helper.<PipeBlockEntity>getBlockEntity(new BlockPos(1, 1, 1)).upgrades
                 .setItem(Direction.SOUTH.ordinal() * PipeBlockEntity.UPGRADES_PER_SIDE + 1, new ItemStack(ModItems.FLUID_UPGRADE.get()));
         helper.<PipeBlockEntity>getBlockEntity(new BlockPos(2, 1, 1)).getFilter(Direction.SOUTH, true)
-                .set(0, new ItemStack(Items.WATER_BUCKET));
+                .set(0, PipeFilter.contentsOf(new ItemStack(Items.WATER_BUCKET)));
         helper.onEachTick(() -> helper.assertBlockPresent(Blocks.CAULDRON, new BlockPos(2, 1, 2)));
         helper.succeedWhen(() -> helper.assertBlockPresent(Blocks.WATER_CAULDRON, new BlockPos(3, 1, 2)));
+    }
+
+    // A plain water bucket entry only filters the item, so the water still goes into the first cauldron.
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void bucketItemFilter(GameTestHelper helper) {
+        pipeRow(helper, Side.EXTRACT, Side.INSERT, Side.INSERT);
+        helper.setBlock(new BlockPos(1, 1, 2), Blocks.WATER_CAULDRON.defaultBlockState().setValue(LayeredCauldronBlock.LEVEL, 3));
+        helper.setBlock(new BlockPos(2, 1, 2), Blocks.CAULDRON);
+        helper.setBlock(new BlockPos(3, 1, 2), Blocks.CAULDRON);
+        helper.<PipeBlockEntity>getBlockEntity(new BlockPos(1, 1, 1)).upgrades
+                .setItem(Direction.SOUTH.ordinal() * PipeBlockEntity.UPGRADES_PER_SIDE + 1, new ItemStack(ModItems.FLUID_UPGRADE.get()));
+        helper.<PipeBlockEntity>getBlockEntity(new BlockPos(2, 1, 1)).getFilter(Direction.SOUTH, true)
+                .set(0, new ItemStack(Items.WATER_BUCKET));
+        helper.onEachTick(() -> helper.assertBlockPresent(Blocks.CAULDRON, new BlockPos(3, 1, 2)));
+        helper.succeedWhen(() -> helper.assertBlockPresent(Blocks.WATER_CAULDRON, new BlockPos(2, 1, 2)));
     }
 
     // Two "both" sides on different channels keep moving after their block entities are saved and loaded again,

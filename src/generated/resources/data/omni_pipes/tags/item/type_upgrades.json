@@ -1,6 +1,9 @@
 {
   "values": [
     "#omni_pipes:fluid_upgrade_compat",
-    "#omni_pipes:energy_upgrade_compat"
+    "#omni_pipes:energy_upgrade_compat",
+    "#omni_pipes:chemical_upgrade_compat",
+    "#omni_pipes:heat_upgrade_compat",
+    "#omni_pipes:source_upgrade_compat"
   ]
 }

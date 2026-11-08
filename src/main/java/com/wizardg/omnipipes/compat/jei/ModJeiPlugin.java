@@ -1,13 +1,16 @@
 package com.wizardg.omnipipes.compat.jei;
 
 import com.wizardg.omnipipes.OmniPipes;
+import com.wizardg.omnipipes.item.ModItems;
 import com.wizardg.omnipipes.screen.PipeScreen;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.gui.handlers.IGhostIngredientHandler;
 import mezz.jei.api.gui.handlers.IGuiContainerHandler;
+import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.registration.IGuiHandlerRegistration;
+import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -21,6 +24,14 @@ public class ModJeiPlugin implements IModPlugin {
     @Override
     public ResourceLocation getPluginUid() {
         return ResourceLocation.fromNamespaceAndPath(OmniPipes.MODID, "jei_plugin");
+    }
+
+    // Upgrades for mods that aren't installed do nothing.
+    @Override
+    public void onRuntimeAvailable(IJeiRuntime runtime) {
+        if (!ModItems.UNAVAILABLE.isEmpty())
+            runtime.getIngredientManager().removeIngredientsAtRuntime(VanillaTypes.ITEM_STACK,
+                    ModItems.UNAVAILABLE.stream().map(item -> new ItemStack(item.get())).toList());
     }
 
     @Override
@@ -37,7 +48,7 @@ public class ModJeiPlugin implements IModPlugin {
                 ItemStack stack = switch (ingredient.getIngredient()) {
                     case ItemStack item -> item;
                     case FluidStack fluid -> PipeScreen.bucketOf(fluid.getFluid());
-                    default -> ItemStack.EMPTY;
+                    default -> PipeScreen.chemicalOf(ingredient.getIngredient());
                 };
                 if (stack.isEmpty()) return List.of();
                 return screen.filterSlots().stream().<Target<I>>map(slot -> new Target<>() {

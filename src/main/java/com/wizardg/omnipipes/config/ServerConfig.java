@@ -13,6 +13,10 @@ public class ServerConfig {
     public static final ModConfigSpec.ConfigValue<Integer> maxSleepTicks;
     public static final Rates base;
     public static final List<Rates> upgradeTiers = new ArrayList<>(); // index 0 = tier 1
+    public static final ModConfigSpec.ConfigValue<Integer> chemicalBase;
+    public static final List<ModConfigSpec.ConfigValue<Integer>> chemicalTiers = new ArrayList<>(); // index 0 = tier 1
+    public static final ModConfigSpec.ConfigValue<Integer> sourceBase;
+    public static final List<ModConfigSpec.ConfigValue<Integer>> sourceTiers = new ArrayList<>(); // index 0 = tier 1
 
     public record Rates(ModConfigSpec.ConfigValue<Integer> transferRate,
                         ModConfigSpec.ConfigValue<Integer> itemTransferRate,
@@ -46,7 +50,39 @@ public class ServerConfig {
         }
 
         BUILDER.pop();
+
+        BUILDER.comment("Mekanism settings, used by the Chemical Upgrade when Mekanism is installed. Sub sections override this for each upgrade.",
+                "Heat has no rate, it moves instantly.").push("mekanism");
+        chemicalBase = chemicalRate(2000);
+        int[] chemicalDefaults = {5000, 16_000, 32_000, 64_000};
+        for (int tier = 1; tier <= chemicalDefaults.length; tier++) {
+            BUILDER.push("upgrade_tier_" + tier);
+            chemicalTiers.add(chemicalRate(chemicalDefaults[tier - 1]));
+            BUILDER.pop();
+        }
+        BUILDER.pop();
+
+        // A source jar holds 10000, so tier 4 moves a full jar per transfer.
+        BUILDER.comment("Ars Nouveau settings, used by the Source Upgrade when Ars Nouveau is installed. Sub sections override this for each upgrade.")
+                .push("ars_nouveau");
+        sourceBase = sourceRate(500);
+        int[] sourceDefaults = {1000, 2500, 5000, 10_000};
+        for (int tier = 1; tier <= sourceDefaults.length; tier++) {
+            BUILDER.push("upgrade_tier_" + tier);
+            sourceTiers.add(sourceRate(sourceDefaults[tier - 1]));
+            BUILDER.pop();
+        }
+        BUILDER.pop();
+
         SPEC = BUILDER.build();
+    }
+
+    private static ModConfigSpec.ConfigValue<Integer> chemicalRate(int amount) {
+        return BUILDER.comment("Chemicals in mB moved per transfer.").defineInRange("chemicalTransferRate", amount, 1, Integer.MAX_VALUE);
+    }
+
+    private static ModConfigSpec.ConfigValue<Integer> sourceRate(int amount) {
+        return BUILDER.comment("Source moved per transfer.").defineInRange("sourceTransferRate", amount, 1, Integer.MAX_VALUE);
     }
 
     private static Rates rates(int ticks, int items, int fluid, int energy) {

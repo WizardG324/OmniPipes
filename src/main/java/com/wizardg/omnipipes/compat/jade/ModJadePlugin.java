@@ -56,6 +56,9 @@ public class ModJadePlugin implements IWailaPlugin {
             data.putInt("items", rates.items());
             data.putInt("fluid", be.movesType(dir, ModTags.Items.FLUID_UPGRADE_COMPAT) ? rates.fluid() : -1);
             data.putInt("energy", be.movesType(dir, ModTags.Items.ENERGY_UPGRADE_COMPAT) ? rates.energy() : -1);
+            data.putInt("chemical", OmniPipes.MEKANISM_LOADED && be.movesType(dir, ModTags.Items.CHEMICAL_UPGRADE_COMPAT) ? rates.chemical() : -1);
+            data.putBoolean("heat", OmniPipes.MEKANISM_LOADED && be.movesType(dir, ModTags.Items.HEAT_UPGRADE_COMPAT));
+            data.putInt("source", OmniPipes.ARS_NOUVEAU_LOADED && be.movesType(dir, ModTags.Items.SOURCE_UPGRADE_COMPAT) ? rates.source() : -1);
             data.putInt("insert_channel", be.getInsertChannel(dir));
             data.putInt("extract_channel", be.getExtractChannel(dir));
         }
@@ -98,6 +101,8 @@ public class ModJadePlugin implements IWailaPlugin {
             List<Component> amounts = new ArrayList<>(List.of(Component.literal(String.valueOf(data.getInt("items")))));
             int fluid = (data.contains("fluid") ? data.getInt("fluid") : -1);
             int energy = (data.contains("energy") ? data.getInt("energy") : -1);
+            int chemical = (data.contains("chemical") ? data.getInt("chemical") : -1);
+            int source = (data.contains("source") ? data.getInt("source") : -1);
             if (fluid >= 0) {
                 types.add(Component.translatable("jade.omni_pipes.type.fluids"));
                 amounts.add(Component.translatable("jade.omni_pipes.fluid", ModFormat.decimal(fluid / 1000.0)));
@@ -105,6 +110,18 @@ public class ModJadePlugin implements IWailaPlugin {
             if (energy >= 0) {
                 types.add(Component.translatable("jade.omni_pipes.type.energy"));
                 amounts.add(Component.translatable("jade.omni_pipes.energy", ModFormat.compact(energy)));
+            }
+            if (chemical >= 0) {
+                types.add(Component.translatable("jade.omni_pipes.type.chemicals"));
+                amounts.add(Component.translatable("jade.omni_pipes.fluid", ModFormat.decimal(chemical / 1000.0)));
+            }
+            if (data.getBoolean("heat")) {
+                types.add(Component.translatable("jade.omni_pipes.type.heat"));
+                amounts.add(Component.translatable("jade.omni_pipes.instant"));
+            }
+            if (source >= 0) {
+                types.add(Component.translatable("jade.omni_pipes.type.source"));
+                amounts.add(Component.literal(ModFormat.compact(source)));
             }
             tooltip.add(Component.translatable("jade.omni_pipes.transferring", join(types)));
             tooltip.add(Component.translatable("jade.omni_pipes.stats", speed, join(amounts)));

@@ -4,6 +4,9 @@ import com.wizardg.omnipipes.OmniPipes;
 import com.wizardg.omnipipes.block.custom.PipeBlock;
 import com.wizardg.omnipipes.block.entity.PipeBlockEntity;
 import com.wizardg.omnipipes.block.entity.PipeFilter;
+import com.wizardg.omnipipes.compat.ars.ArsCompat;
+import com.wizardg.omnipipes.compat.mekanism.MekanismCompat;
+import com.wizardg.omnipipes.networking.SetFilterAmountPayload;
 import com.wizardg.omnipipes.networking.SetFilterPayload;
 import com.wizardg.omnipipes.util.ModTags;
 import net.minecraft.ChatFormatting;
@@ -13,6 +16,7 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.Rect2i;
@@ -20,14 +24,19 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluid;
+import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidUtil;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,6 +56,8 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     private final List<CycleButton> buttons = new ArrayList<>();
     private PipeBlock.Side shownMode;
     private boolean shownInsert;
+    private @Nullable EditBox amountBox; // open while typing an amount, middle-click on a filled filter slot
+    private int amountSlot;
 
     public PipeScreen(PipeMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -58,9 +69,11 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
-        // Tooltips are raised above REI's drag highlight (z 500).
+        // Tooltips are raised above REI's drag highlight (z 500), the amount box above the slot items and amounts it covers (z 300).
         graphics.pose().pushPose();
-        graphics.pose().translate(0, 0, 200);
+        graphics.pose().translate(0, 0, 400);
+        if (amountBox != null) amountBox.render(graphics, mouseX, mouseY, partialTick);
+        graphics.pose().translate(0, 0, -200);
         renderTooltip(graphics, mouseX, mouseY);
         for (CycleButton button : buttons)
             if (button.isHovered() && button.tip != null) graphics.renderTooltip(font, font.split(button.tip, 170), mouseX, mouseY);
@@ -74,6 +87,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         shownMode = menu.mode();
         shownInsert = menu.showingInsert();
         buttons.clear();
+        amountBox = null;
 
         add(new CycleButton(PipeMenu.MODE, 8, 18, 78, null));
         // Only "both" has two filters to switch between.
@@ -203,12 +217,36 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
                 graphics.fill(slot.x, slot.y, slot.x + 16, slot.y + 16, 0xB08B8B8B);
             }
         }
+        // Fluid, chemical, source and energy entries show what's inside instead of the item.
+        Contents contents = PipeMenu.isFilterSlot(slot) && slot.hasItem() ? contents(slot.getItem()) : null;
+        if (contents != null) {
+            graphics.fill(slot.x, slot.y, slot.x + 16, slot.y + 16, 0xFF8B8B8B);
+            int tint = contents.tint();
+            graphics.blit(slot.x, slot.y, 0, 16, 16, minecraft.getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(contents.sprite()),
+                    (tint >> 16 & 0xFF) / 255f, (tint >> 8 & 0xFF) / 255f, (tint & 0xFF) / 255f, 1);
+        }
         int amount = PipeMenu.isFilterSlot(slot) && slot.hasItem() ? menu.amount(slot.getContainerSlot()) : 0;
         if (amount > 0) {
-            String text = amount < 1000 ? String.valueOf(amount) : String.format(Locale.ROOT, "%.1fk", amount / 1000.0);
-            graphics.drawString(font, text, slot.x + 17 - font.width(text), slot.y + 9, 0xFFFFFFFF, true);
+            // Drawn like a stack count, shrunk when it's wider than the slot (like 999k).
+            String text = shortAmount(amount);
+            float scale = Math.min(1, 17f / font.width(text));
+            graphics.pose().translate(slot.x + 17, slot.y + 17, 0);
+            graphics.pose().scale(scale, scale, 1);
+            graphics.drawString(font, text, -font.width(text), -8, 0xFFFFFFFF, true);
         }
         graphics.pose().popPose();
+    }
+
+    private static String shortAmount(int amount) {
+        if (amount < 1000) return String.valueOf(amount);
+        if (amount < 10_000) return tenths(amount / 100) + "k";
+        if (amount < 1_000_000) return amount / 1000 + "k";
+        if (amount < 10_000_000) return tenths(amount / 100_000) + "M";
+        return amount / 1_000_000 + "M";
+    }
+
+    private static String tenths(int tenths) {
+        return tenths % 10 == 0 ? String.valueOf(tenths / 10) : tenths / 10 + "." + tenths % 10;
     }
 
     // Filter slot tooltips add the amount and what it does, on top of the item's own tooltip.
@@ -216,15 +254,39 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     protected List<Component> getTooltipFromContainerItem(ItemStack stack) {
         List<Component> lines = new ArrayList<>(super.getTooltipFromContainerItem(stack));
         if (hoveredSlot == null || !PipeMenu.isFilterSlot(hoveredSlot)) return lines;
+        Contents contents = contents(stack);
+        if (contents != null) {
+            lines.clear();
+            lines.add(contents.name());
+        }
         int amount = menu.amount(hoveredSlot.getContainerSlot());
         String meaning = !menu.whitelist() ? "screen.omni_pipes.amount.blacklist"
                 : amount == 0 ? "screen.omni_pipes.amount.none"
                 : menu.showingInsert() ? "screen.omni_pipes.amount.insert" : "screen.omni_pipes.amount.extract";
-        lines.add(Component.translatable(meaning, amount).withStyle(ChatFormatting.AQUA));
-        if (PipeFilter.holdsFluid(stack))
-            lines.add(Component.translatable("screen.omni_pipes.amount.fluid").withStyle(ChatFormatting.AQUA));
+        String full = String.format(Locale.ROOT, "%,d", amount);
+        Component value = contents != null ? Component.translatable("screen.omni_pipes.unit." + contents.kind(), full) : Component.literal(full);
+        lines.add(Component.translatable(meaning, value).withStyle(ChatFormatting.AQUA));
+        if (contents != null) lines.add(Component.translatable("screen.omni_pipes.amount." + contents.kind()).withStyle(ChatFormatting.AQUA));
         lines.add(Component.translatable("screen.omni_pipes.amount.hint").withStyle(ChatFormatting.GRAY));
         return lines;
+    }
+
+    private record Contents(Component name, ResourceLocation sprite, int tint, String kind) {}
+    private static final ResourceLocation ENERGY_TEXTURE = ResourceLocation.fromNamespaceAndPath(OmniPipes.MODID, "block/energy");
+
+    // The fluid, chemical, source or energy a FILTER_CONTENTS entry filters, null for item entries.
+    private static @Nullable Contents contents(ItemStack stack) {
+        return switch (PipeFilter.contentsKind(stack)) {
+            case "fluid" -> {
+                FluidStack fluid = FluidUtil.getFluidContained(stack).orElseThrow();
+                IClientFluidTypeExtensions look = IClientFluidTypeExtensions.of(fluid.getFluid());
+                yield new Contents(fluid.getHoverName(), look.getStillTexture(fluid), look.getTintColor(fluid), "fluid");
+            }
+            case "source" -> new Contents(Component.translatable("screen.omni_pipes.source"), ArsCompat.TEXTURE, 0xFFFFFF, "source");
+            case "chemical" -> MekanismCompat.heldLook(stack, (name, sprite, tint) -> new Contents(name, sprite, tint, "chemical"));
+            case "energy" -> new Contents(Component.translatable("screen.omni_pipes.energy"), ENERGY_TEXTURE, 0xFFFFFF, "energy");
+            case null, default -> null;
+        };
     }
 
     // Recipe viewer drag and drop (compat/jei, compat/rei): the filter slots, where they are, and dropping into one.
@@ -248,14 +310,19 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         if (!stack.isEmpty()) PacketDistributor.sendToServer(new SetFilterPayload(menu.containerId, slot.getContainerSlot(), stack.copyWithCount(1)));
     }
 
-    // Fluids become their bucket, since a bucket entry filters its fluid.
+    // Fluids become their bucket, marked to filter the fluid inside.
     public static ItemStack bucketOf(Fluid fluid) {
-        return new ItemStack(fluid.getBucket());
+        return PipeFilter.contentsOf(new ItemStack(fluid.getBucket()));
+    }
+
+    public static ItemStack chemicalOf(Object value) {
+        return OmniPipes.MEKANISM_LOADED ? MekanismCompat.chemicalEntry(value) : ItemStack.EMPTY;
     }
 
     // Mouse wheel over a filled filter slot changes its amount (shift: by 10), anywhere else on the grid scrolls it.
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (amountBox != null) closeAmountBox(false); // scrolling could move another entry under its slot
         if (scrollY != 0 && hoveredSlot != null && PipeMenu.isFilterSlot(hoveredSlot) && hoveredSlot.hasItem()) {
             minecraft.gameMode.handleInventoryButtonClick(menu.containerId,
                     PipeMenu.amountButtonId(hoveredSlot.getContainerSlot(), scrollY > 0, Screen.hasShiftDown()));
@@ -268,6 +335,39 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    // Middle-click on a filled filter slot opens a box to type its amount, clicking anywhere else closes it.
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (amountBox != null && !amountBox.isMouseOver(mouseX, mouseY)) closeAmountBox(false);
+        if (minecraft.options.keyPickItem.matchesMouse(button) && hoveredSlot != null && PipeMenu.isFilterSlot(hoveredSlot) && hoveredSlot.hasItem()) {
+            amountSlot = hoveredSlot.getContainerSlot();
+            amountBox = addWidget(new EditBox(font, leftPos + hoveredSlot.x - 21, topPos + hoveredSlot.y + 18, 58, 14,
+                    Component.translatable("screen.omni_pipes.amount.box")));
+            amountBox.setMaxLength(9);
+            amountBox.setFilter(text -> text.chars().allMatch(Character::isDigit));
+            amountBox.setValue(String.valueOf(menu.amount(amountSlot)));
+            setFocused(amountBox);
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean keyPressed(int key, int scanCode, int modifiers) {
+        if (amountBox == null) return super.keyPressed(key, scanCode, modifiers);
+        if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) closeAmountBox(true);
+        else if (key == GLFW.GLFW_KEY_ESCAPE) closeAmountBox(false);
+        else amountBox.keyPressed(key, scanCode, modifiers);
+        return true;
+    }
+
+    private void closeAmountBox(boolean save) {
+        if (save && !amountBox.getValue().isEmpty())
+            PacketDistributor.sendToServer(new SetFilterAmountPayload(menu.containerId, amountSlot, Integer.parseInt(amountBox.getValue())));
+        removeWidget(amountBox);
+        amountBox = null;
     }
 
     // Clicks on the upgrade strip and the buttons left of the panel count as inside, otherwise vanilla would drop the carried item.

@@ -167,7 +167,7 @@ public class TagFilterScreen extends Screen {
         graphics.drawCenteredString(font, title, mid, 12, 0xFFFFFFFF);
         graphics.drawString(font, status, mid - 150, 52, 0xFFFFFFFF);
         graphics.drawString(font, Component.translatable("screen.omni_pipes.tag_filter.list", tags.size(), TagFilterItem.MAX_TAGS), mid - 150, 64, 0xFFA0A0A0);
-        graphics.drawString(font, Component.translatable(typed.isBlank() ? "screen.omni_pipes.tag_filter.other_hand" : "screen.omni_pipes.tag_filter.matching"),
+        graphics.drawString(font, Component.translatable("screen.omni_pipes.tag_filter." + (!typed.isBlank() ? "matching" : hand == InteractionHand.MAIN_HAND ? "offhand" : "main_hand")),
                 mid + 5, 64, 0xFFA0A0A0);
         if (offeredTags.size() > ROWS)
             graphics.drawString(font, Component.translatable("screen.omni_pipes.tag_filter.scroll", offerScroll + 1, offerScroll + ROWS, offeredTags.size()),

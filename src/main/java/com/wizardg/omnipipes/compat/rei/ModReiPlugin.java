@@ -1,8 +1,10 @@
 package com.wizardg.omnipipes.compat.rei;
 
+import com.wizardg.omnipipes.item.ModItems;
 import com.wizardg.omnipipes.screen.PipeScreen;
 import dev.architectury.fluid.FluidStack;
 import me.shedaniel.math.Rectangle;
+import me.shedaniel.rei.api.client.entry.filtering.base.BasicFilteringRule;
 import me.shedaniel.rei.api.client.gui.drag.DraggableStack;
 import me.shedaniel.rei.api.client.gui.drag.DraggableStackVisitor;
 import me.shedaniel.rei.api.client.gui.drag.DraggedAcceptorResult;
@@ -10,6 +12,8 @@ import me.shedaniel.rei.api.client.gui.drag.DraggingContext;
 import me.shedaniel.rei.api.client.plugins.REIClientPlugin;
 import me.shedaniel.rei.api.client.registry.screen.ExclusionZones;
 import me.shedaniel.rei.api.client.registry.screen.ScreenRegistry;
+import me.shedaniel.rei.api.common.entry.EntryStack;
+import me.shedaniel.rei.api.common.util.EntryStacks;
 import me.shedaniel.rei.forge.REIPluginClient;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.Rect2i;
@@ -25,6 +29,13 @@ public class ModReiPlugin implements REIClientPlugin {
     public void registerExclusionZones(ExclusionZones zones) {
         zones.register(PipeScreen.class, (PipeScreen screen) -> screen.extraAreas().stream()
                 .map(area -> new Rectangle(area.getX(), area.getY(), area.getWidth(), area.getHeight())).toList());
+    }
+
+    // Upgrades for mods that aren't installed do nothing.
+    @Override
+    public void registerBasicEntryFiltering(BasicFilteringRule<?> rule) {
+        if (!ModItems.UNAVAILABLE.isEmpty())
+            rule.hide(() -> ModItems.UNAVAILABLE.stream().<EntryStack<?>>map(item -> EntryStacks.of(item.get())).toList());
     }
 
     @Override
@@ -66,7 +77,7 @@ public class ModReiPlugin implements REIClientPlugin {
         return switch (value) {
             case ItemStack item -> item;
             case FluidStack fluid -> PipeScreen.bucketOf(fluid.getFluid());
-            default -> ItemStack.EMPTY;
+            default -> PipeScreen.chemicalOf(value);
         };
     }
 }

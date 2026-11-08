@@ -18,7 +18,11 @@ public class ModTags {
         // Items in these work as that type's upgrade, so packs can add their own.
         public static final TagKey<Item> FLUID_UPGRADE_COMPAT = tag("fluid_upgrade_compat");
         public static final TagKey<Item> ENERGY_UPGRADE_COMPAT = tag("energy_upgrade_compat");
-        public static final List<TagKey<Item>> UPGRADE_COMPAT = List.of(FLUID_UPGRADE_COMPAT, ENERGY_UPGRADE_COMPAT);
+        public static final TagKey<Item> CHEMICAL_UPGRADE_COMPAT = tag("chemical_upgrade_compat");
+        public static final TagKey<Item> HEAT_UPGRADE_COMPAT = tag("heat_upgrade_compat");
+        public static final TagKey<Item> SOURCE_UPGRADE_COMPAT = tag("source_upgrade_compat");
+        public static final List<TagKey<Item>> UPGRADE_COMPAT = List.of(FLUID_UPGRADE_COMPAT, ENERGY_UPGRADE_COMPAT,
+                CHEMICAL_UPGRADE_COMPAT, HEAT_UPGRADE_COMPAT, SOURCE_UPGRADE_COMPAT);
 
         private static TagKey<Item> tag(String name) {
             return ItemTags.create(ResourceLocation.fromNamespaceAndPath(OmniPipes.MODID, name));

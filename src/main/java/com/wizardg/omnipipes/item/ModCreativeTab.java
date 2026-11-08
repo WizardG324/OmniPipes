@@ -17,5 +17,7 @@ public class ModCreativeTab {
             .withTabsBefore(CreativeModeTabs.COMBAT)
             .icon(() -> ModBlocks.PIPE.asItem().getDefaultInstance())
             .title(Component.translatable("itemGroup.omni_pipes"))
-            .displayItems(ModItems.ITEMS.getEntries()).build());
+            .displayItems((params, output) -> ModItems.ITEMS.getEntries().stream()
+                    .filter(item -> !ModItems.UNAVAILABLE.contains(item))
+                    .forEach(item -> output.accept(item.get()))).build());
 }

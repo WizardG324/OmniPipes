@@ -27,6 +27,9 @@ public class ModLangProvider extends LanguageProvider {
         add(ModItems.CREATIVE_UPGRADE.get(), "Creative Upgrade");
         add(ModItems.FLUID_UPGRADE.get(), "Fluid Upgrade");
         add(ModItems.ENERGY_UPGRADE.get(), "Energy Upgrade");
+        add(ModItems.CHEMICAL_UPGRADE.get(), "Chemical Upgrade");
+        add(ModItems.HEAT_UPGRADE.get(), "Heat Upgrade");
+        add(ModItems.SOURCE_UPGRADE.get(), "Source Upgrade");
 
         //Jade
         add("config.jade.plugin_omni_pipes.pipe", "Pipe Connection");
@@ -38,11 +41,15 @@ public class ModLangProvider extends LanguageProvider {
         add("jade.omni_pipes.type.items", "Items");
         add("jade.omni_pipes.type.fluids", "Fluids");
         add("jade.omni_pipes.type.energy", "Energy");
+        add("jade.omni_pipes.type.chemicals", "Chemicals");
+        add("jade.omni_pipes.type.heat", "Heat");
         add("jade.omni_pipes.everything", "Everything");
         add("jade.omni_pipes.stats", "Stats: %st / %s");
         add("jade.omni_pipes.fluid", "%sB");
         add("jade.omni_pipes.energy", "%s FE");
         add("jade.omni_pipes.unlimited", "Unlimited");
+        add("jade.omni_pipes.instant", "Instant");
+        add("jade.omni_pipes.type.source", "Source");
 
         //Commands
         add("command.omni_pipes.stats", "%s pipes loaded in %s networks, %s extracting sides (%s sleeping)");
@@ -108,7 +115,7 @@ public class ModLangProvider extends LanguageProvider {
         add("screen.omni_pipes.components.match.tooltip", "Items must match exactly, including enchantments, names and other data");
         add("screen.omni_pipes.components.ignore", "Ignore Components");
         add("screen.omni_pipes.components.ignore.tooltip", "Only the item type has to match");
-        add("screen.omni_pipes.filter_slot.tooltip", "Click with an item to filter it, right click to remove");
+        add("screen.omni_pipes.filter_slot.tooltip", "Click with an item to filter it, right click to filter contents like fluids, chemicals, etc.");
         add("screen.omni_pipes.amount.none", "No amount set, moves any number");
         add("screen.omni_pipes.amount.extract", "Moves up to %s at a time");
         add("screen.omni_pipes.amount.insert", "Fills the target up to %s");
@@ -143,7 +150,8 @@ public class ModLangProvider extends LanguageProvider {
         add("screen.omni_pipes.tag_filter.remove", "Click to remove");
         add("screen.omni_pipes.tag_filter.pick", "Click to add");
         add("screen.omni_pipes.tag_filter.list", "Tags (%s/%s)");
-        add("screen.omni_pipes.tag_filter.other_hand", "Tags of the item in your other hand");
+        add("screen.omni_pipes.tag_filter.offhand", "Tags of the item in your offhand");
+        add("screen.omni_pipes.tag_filter.main_hand", "Tags of the item in your main hand");
         add("screen.omni_pipes.tag_filter.invalid", "Not a valid tag id");
         add("screen.omni_pipes.tag_filter.unknown", "No item or fluid tag with that name");
         add("screen.omni_pipes.tag_filter.duplicate", "Already in the list");
@@ -154,9 +162,24 @@ public class ModLangProvider extends LanguageProvider {
         add("tooltip.omni_pipes.upgrade.creative_upgrade", "Every tick, unlimited amounts, moves every available type");
         add("tooltip.omni_pipes.upgrade.fluid_upgrade", "Lets a pipe connection extract fluids");
         add("tooltip.omni_pipes.upgrade.energy_upgrade", "Lets a pipe connection extract energy");
+        add("tooltip.omni_pipes.upgrade.chemical_upgrade", "Lets a pipe connection extract Mekanism chemicals");
+        add("tooltip.omni_pipes.upgrade.heat_upgrade", "Lets a pipe connection move Mekanism heat, transfers instantly");
+        add("tooltip.omni_pipes.chemical_amount", "Chemicals per transfer: %sB");
+        add("tooltip.omni_pipes.upgrade.source_upgrade", "Lets a pipe connection extract Ars Nouveau source");
+        add("tooltip.omni_pipes.source_amount", "Source per transfer: %s");
         add("tooltip.omni_pipes.install", "Shift right-click a pipe connection to install");
-        add("screen.omni_pipes.amount.fluid", "Also filters the fluid inside, its amount counts in buckets");
-        add("screen.omni_pipes.amount.hint", "Scroll to change the amount (shift: by 10), right click to remove");
+        add("screen.omni_pipes.amount.fluid", "Filters this fluid");
+        add("screen.omni_pipes.amount.chemical", "Filters this chemical");
+        add("screen.omni_pipes.amount.source", "Filters source");
+        add("screen.omni_pipes.source", "Source");
+        add("screen.omni_pipes.amount.energy", "Filters energy");
+        add("screen.omni_pipes.energy", "Energy");
+        add("screen.omni_pipes.unit.fluid", "%s mB");
+        add("screen.omni_pipes.unit.chemical", "%s mB");
+        add("screen.omni_pipes.unit.source", "%s Source");
+        add("screen.omni_pipes.unit.energy", "%s FE");
+        add("screen.omni_pipes.amount.box", "Amount");
+        add("screen.omni_pipes.amount.hint", "Scroll to change the amount (shift: by 10), middle click to type it, right click to remove");
     }
 
     // light_blue -> Light Blue

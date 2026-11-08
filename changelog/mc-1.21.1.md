@@ -1,3 +1,11 @@
+## v1.2
+- Added Mekanism compat to transfer chemicals and heat
+- Added Ars Nouveau compat to transfer source
+- Changed the look of the upgrade textures
+- Added the ability to add a filter for energy
+- Added precise filtering for amounts(middle-click on a filter)
+- Changed how filtering fluids, and similar contents works. To filter them, You now have to right-click a bucket, or tank. This also works for an Ars source jar, and items that hold energy.
+
 ## v1.1
 - Added support for Powah to allow Energizing Rods to be placed on pipes
 - Added fluid_upgrade_compat and energy_upgrade_compat item tags, so packs can make their own items work as type upgrades

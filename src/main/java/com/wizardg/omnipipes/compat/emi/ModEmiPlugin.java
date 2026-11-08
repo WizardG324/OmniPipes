@@ -1,5 +1,6 @@
 package com.wizardg.omnipipes.compat.emi;
 
+import com.wizardg.omnipipes.item.ModItems;
 import com.wizardg.omnipipes.screen.PipeScreen;
 import dev.emi.emi.api.EmiDragDropHandler;
 import dev.emi.emi.api.EmiEntrypoint;
@@ -13,11 +14,12 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
 
-// Keeps EMI clear of the pipe screen's side parts, and lets items and fluids be dragged onto its filter slots.
+// Keeps EMI clear of the pipe screen's side parts, and lets items, fluids and chemicals be dragged onto its filter slots.
 @EmiEntrypoint
 public class ModEmiPlugin implements EmiPlugin {
     @Override
     public void register(EmiRegistry registry) {
+        ModItems.UNAVAILABLE.forEach(item -> registry.removeEmiStacks(EmiStack.of(item.get()))); // upgrades for mods that aren't installed
         registry.addExclusionArea(PipeScreen.class, (screen, out) -> screen.extraAreas().forEach(area -> out.accept(bounds(area))));
         registry.addDragDropHandler(PipeScreen.class, new EmiDragDropHandler.BoundsBased<PipeScreen>((screen, out) -> {
             for (Slot slot : screen.filterSlots())
@@ -33,6 +35,8 @@ public class ModEmiPlugin implements EmiPlugin {
     private static ItemStack toStack(EmiIngredient dragged) {
         if (dragged.getEmiStacks().size() != 1) return ItemStack.EMPTY;
         EmiStack stack = dragged.getEmiStacks().getFirst();
-        return stack.getKey() instanceof Fluid fluid ? PipeScreen.bucketOf(fluid) : stack.getItemStack();
+        if (stack.getKey() instanceof Fluid fluid) return PipeScreen.bucketOf(fluid);
+        ItemStack chemical = PipeScreen.chemicalOf(stack.getKey());
+        return chemical.isEmpty() ? stack.getItemStack() : chemical;
     }
 }

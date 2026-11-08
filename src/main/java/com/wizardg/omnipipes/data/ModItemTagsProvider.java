@@ -37,6 +37,9 @@ public class ModItemTagsProvider extends ItemTagsProvider {
         tag(ModTags.Items.TIER_UPGRADES).add(ModItems.CREATIVE_UPGRADE.get());
         tag(ModTags.Items.FLUID_UPGRADE_COMPAT).add(ModItems.FLUID_UPGRADE.get());
         tag(ModTags.Items.ENERGY_UPGRADE_COMPAT).add(ModItems.ENERGY_UPGRADE.get());
+        tag(ModTags.Items.CHEMICAL_UPGRADE_COMPAT).add(ModItems.CHEMICAL_UPGRADE.get());
+        tag(ModTags.Items.SOURCE_UPGRADE_COMPAT).add(ModItems.SOURCE_UPGRADE.get());
+        tag(ModTags.Items.HEAT_UPGRADE_COMPAT).add(ModItems.HEAT_UPGRADE.get());
         ModTags.Items.UPGRADE_COMPAT.forEach(type -> tag(ModTags.Items.TYPE_UPGRADES).addTag(type));
     }
 }

@@ -12,6 +12,7 @@ import com.wizardg.omnipipes.gametest.ModGameTests;
 import com.wizardg.omnipipes.item.ModCreativeTab;
 import com.wizardg.omnipipes.item.ModDataComponents;
 import com.wizardg.omnipipes.item.ModItems;
+import com.wizardg.omnipipes.networking.SetFilterAmountPayload;
 import com.wizardg.omnipipes.networking.SetFilterPayload;
 import com.wizardg.omnipipes.networking.SetTagFilterPayload;
 import com.wizardg.omnipipes.screen.ModMenuTypes;
@@ -35,6 +36,8 @@ public class OmniPipes {
     public static final String MODID = "omni_pipes";
     public static final Logger LOGGER = LogUtils.getLogger();
     public static final boolean POWAH_LOADED = ModList.get().isLoaded("powah");
+    public static final boolean MEKANISM_LOADED = ModList.get().isLoaded("mekanism");
+    public static final boolean ARS_NOUVEAU_LOADED = ModList.get().isLoaded("ars_nouveau");
 
     public OmniPipes(IEventBus modEventBus, ModContainer modContainer) {
         ModBlocks.BLOCKS.register(modEventBus);
@@ -45,6 +48,7 @@ public class OmniPipes {
         ModMenuTypes.MENUS.register(modEventBus);
         modEventBus.addListener(ModGameTests::registerTests);
         modEventBus.addListener(SetFilterPayload::register);
+        modEventBus.addListener(SetFilterAmountPayload::register);
         modEventBus.addListener(SetTagFilterPayload::register);
 
         modContainer.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);

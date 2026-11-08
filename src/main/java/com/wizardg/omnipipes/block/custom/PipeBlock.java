@@ -1,8 +1,11 @@
 package com.wizardg.omnipipes.block.custom;
 
 import com.mojang.serialization.MapCodec;
+import com.wizardg.omnipipes.OmniPipes;
 import com.wizardg.omnipipes.block.ModBlockEntities;
 import com.wizardg.omnipipes.block.entity.PipeBlockEntity;
+import com.wizardg.omnipipes.compat.ars.ArsCompat;
+import com.wizardg.omnipipes.compat.mekanism.MekanismCompat;
 import com.wizardg.omnipipes.item.ModDataComponents;
 import com.wizardg.omnipipes.item.ModItems;
 import com.wizardg.omnipipes.item.PipeConfiguratorItem;
@@ -12,7 +15,6 @@ import com.wizardg.omnipipes.util.ModTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.RandomSource;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
@@ -152,7 +154,9 @@ public class PipeBlock extends Block implements EntityBlock {
         Direction side = dir.getOpposite();
         boolean handler = level.getCapability(Capabilities.ItemHandler.BLOCK, n, side) != null
                 || level.getCapability(Capabilities.FluidHandler.BLOCK, n, side) != null
-                || level.getCapability(Capabilities.EnergyStorage.BLOCK, n, side) != null;
+                || level.getCapability(Capabilities.EnergyStorage.BLOCK, n, side) != null
+                || OmniPipes.MEKANISM_LOADED && MekanismCompat.present(level, n, side)
+                || OmniPipes.ARS_NOUVEAU_LOADED && ArsCompat.present(level, n, side);
         if (!handler) return Side.NONE;
         return current == Side.NONE || current == Side.PIPE ? Side.INSERT : current;
     }
