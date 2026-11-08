@@ -12,7 +12,7 @@ This mod aims to add a one pipe solution to transferring just about anything.
 *   Transfer Items, Fluids, Energy, or multiple types with upgrades (transfers items by default)
 *   Filtering on both insertion and extraction, with either Blacklist or Whitelist
 *   NBT/Component matching on both filtering modes
-*   Fluid filtering by putting a bucket, or a tank containing the fluid you wish to filter, into a filter slot
+*   Fluid filtering by right-clicking a bucket, or a tank containing the fluid you wish to filter, into a filter slot
 *   A tag filter item, to allow filtering for any tag
 *   A tool capable of disabling and enabling connections, as well as copy & pasting settings
 *   Full Redstone control: Disabled/Low signal/High signal/Off
@@ -32,7 +32,9 @@ This mod aims to add a one pipe solution to transferring just about anything.
 *   Jade (shows the mode, the channel colors, what's being transferred, and speed/amounts)
 *   JEI/EMI/REI (shows recipes in the mod's recipe browser plus dragging items and fluids to filters)
 *   BBL-Rifts (26.1.2 - adds a upgrade to allow transferring of rift energy)
-*   Powah (26.1.2 - allows energizing orbs to connect to pipes)
+*   Powah (26.1.2/1.21.1 - allows energizing orbs to connect to pipes)
+*   Mekanism (1.21.1 - adds 2 upgrades, 1 to allow transferring chemicals, and another for heat)
+*   Ars Nouveau (1.21.1 - adds an upgrade that allows transferring of source)
 *   Suggest different mods that handle their own resource, and I'll take a look
 
 ## Known Issues
