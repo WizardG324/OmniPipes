@@ -4,6 +4,7 @@ import com.wizardg.omnipipes.OmniPipes;
 import com.wizardg.omnipipes.block.custom.PipeBlock;
 import com.wizardg.omnipipes.block.entity.PipeBlockEntity;
 import com.wizardg.omnipipes.block.entity.PipeFilter;
+import com.wizardg.omnipipes.networking.SetFilterAmountPayload;
 import com.wizardg.omnipipes.networking.SetFilterPayload;
 import com.wizardg.omnipipes.util.ModTags;
 import net.minecraft.ChatFormatting;
@@ -12,15 +13,20 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.Util;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.block.FluidModel;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.util.ARGB;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
@@ -30,7 +36,10 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.transfer.fluid.FluidUtil;
 import org.jspecify.annotations.Nullable;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +59,8 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
     private final List<CycleButton> buttons = new ArrayList<>();
     private PipeBlock.Side shownMode;
     private boolean shownInsert;
+    private @Nullable EditBox amountBox; // open while typing an amount, middle-click on a filled filter slot
+    private int amountSlot;
 
     public PipeScreen(PipeMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title, 176, PipeMenu.PANEL_HEIGHT);
@@ -62,6 +73,7 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         shownMode = menu.mode();
         shownInsert = menu.showingInsert();
         buttons.clear();
+        amountBox = null;
 
         add(new CycleButton(PipeMenu.MODE, 8, 18, 78, null));
         // Only "both" has two filters to switch between.
@@ -190,8 +202,51 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         if (!PipeMenu.isFilterSlot(slot) || !slot.hasItem()) return;
         int amount = menu.amount(slot.getContainerSlot());
         if (amount <= 0) return;
-        String text = amount < 1000 ? String.valueOf(amount) : String.format(Locale.ROOT, "%.1fk", amount / 1000.0);
-        graphics.text(font, text, slot.x + 17 - font.width(text), slot.y + 9, 0xFFFFFFFF, true);
+        // Drawn like a stack count, shrunk when it's wider than the slot (like 999k).
+        String text = shortAmount(amount);
+        float scale = Math.min(1, 17f / font.width(text));
+        graphics.pose().pushMatrix();
+        graphics.pose().translate(slot.x + 17, slot.y + 17);
+        graphics.pose().scale(scale, scale);
+        graphics.text(font, text, -font.width(text), -8, 0xFFFFFFFF, true);
+        graphics.pose().popMatrix();
+    }
+
+    // Fluid and energy entries show what's inside instead of the item.
+    @Override
+    protected void renderSlotContents(GuiGraphicsExtractor graphics, ItemStack stack, Slot slot, @Nullable String itemCount) {
+        String kind = PipeMenu.isFilterSlot(slot) ? PipeFilter.contentsKind(stack) : null;
+        if ("fluid".equals(kind)) {
+            FluidStack fluid = FluidUtil.getFirstStackContained(stack);
+            FluidModel model = Minecraft.getInstance().getModelManager().getFluidStateModelSet().get(fluid.getFluid().defaultFluidState());
+            int tint = model.fluidTintSource() != null ? ARGB.opaque(model.fluidTintSource().colorAsStack(fluid)) : -1;
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, model.stillMaterial().sprite(), slot.x, slot.y, 16, 16, tint);
+        } else if ("energy".equals(kind)) {
+            graphics.blit(RenderPipelines.GUI_TEXTURED, ENERGY_TEXTURE, slot.x, slot.y, 0, 0, 16, 16, 16, 16);
+        } else super.renderSlotContents(graphics, stack, slot, itemCount);
+    }
+
+    private static final Identifier ENERGY_TEXTURE = Identifier.fromNamespaceAndPath(OmniPipes.MODID, "textures/block/energy.png");
+
+    private static String shortAmount(int amount) {
+        if (amount < 1000) return String.valueOf(amount);
+        if (amount < 10_000) return tenths(amount / 100) + "k";
+        if (amount < 1_000_000) return amount / 1000 + "k";
+        if (amount < 10_000_000) return tenths(amount / 100_000) + "M";
+        return amount / 1_000_000 + "M";
+    }
+
+    private static String tenths(int tenths) {
+        return tenths % 10 == 0 ? String.valueOf(tenths / 10) : tenths / 10 + "." + tenths % 10;
+    }
+
+    // The amount box goes above the slot items and amounts it covers.
+    @Override
+    public void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+        super.extractContents(graphics, mouseX, mouseY, a);
+        if (amountBox == null) return;
+        graphics.nextStratum();
+        amountBox.extractRenderState(graphics, mouseX, mouseY, a);
     }
 
     // Filter slot tooltips add the amount and what it does, on top of the item's own tooltip.
@@ -203,9 +258,15 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         String meaning = !menu.whitelist() ? "screen.omni_pipes.amount.blacklist"
                 : amount == 0 ? "screen.omni_pipes.amount.none"
                 : menu.showingInsert() ? "screen.omni_pipes.amount.insert" : "screen.omni_pipes.amount.extract";
-        lines.add(Component.translatable(meaning, amount).withStyle(ChatFormatting.AQUA));
-        if (PipeFilter.holdsFluid(stack))
-            lines.add(Component.translatable("screen.omni_pipes.amount.fluid").withStyle(ChatFormatting.AQUA));
+        String kind = PipeFilter.contentsKind(stack);
+        if (kind != null) {
+            lines.clear();
+            lines.add(kind.equals("fluid") ? FluidUtil.getFirstStackContained(stack).getHoverName() : Component.translatable("screen.omni_pipes.energy"));
+        }
+        String full = String.format(Locale.ROOT, "%,d", amount);
+        Component value = kind != null ? Component.translatable("screen.omni_pipes.unit." + kind, full) : Component.literal(full);
+        lines.add(Component.translatable(meaning, value).withStyle(ChatFormatting.AQUA));
+        if (kind != null) lines.add(Component.translatable("screen.omni_pipes.amount." + kind).withStyle(ChatFormatting.AQUA));
         lines.add(Component.translatable("screen.omni_pipes.amount.hint").withStyle(ChatFormatting.GRAY));
         return lines;
     }
@@ -231,14 +292,15 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
         if (!stack.isEmpty()) ClientPacketDistributor.sendToServer(new SetFilterPayload(menu.containerId, slot.getContainerSlot(), stack.copyWithCount(1)));
     }
 
-    // Fluids become their bucket, since a bucket entry filters its fluid.
+    // Fluids become their bucket, marked to filter the fluid inside.
     public static ItemStack bucketOf(Fluid fluid) {
-        return new ItemStack(fluid.getBucket());
+        return PipeFilter.contentsOf(new ItemStack(fluid.getBucket()));
     }
 
     // Mouse wheel over a filled filter slot changes its amount (shift: by 10), anywhere else on the grid scrolls it.
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (amountBox != null) closeAmountBox(false); // scrolling could move another entry under its slot
         if (scrollY != 0 && hoveredSlot != null && PipeMenu.isFilterSlot(hoveredSlot) && hoveredSlot.hasItem()) {
             minecraft.gameMode.handleInventoryButtonClick(menu.containerId,
                     PipeMenu.amountButtonId(hoveredSlot.getContainerSlot(), scrollY > 0, minecraft.hasShiftDown()));
@@ -251,6 +313,39 @@ public class PipeScreen extends AbstractContainerScreen<PipeMenu> {
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    // Middle click (pick block) on a filled filter slot opens a box to type its amount, clicking anywhere else closes it.
+    @Override
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        if (amountBox != null && !amountBox.isMouseOver(event.x(), event.y())) closeAmountBox(false);
+        if (minecraft.options.keyPickItem.matchesMouse(event) && hoveredSlot != null && PipeMenu.isFilterSlot(hoveredSlot) && hoveredSlot.hasItem()) {
+            amountSlot = hoveredSlot.getContainerSlot();
+            amountBox = addWidget(new EditBox(font, leftPos + hoveredSlot.x - 21, topPos + hoveredSlot.y + 18, 58, 14,
+                    Component.translatable("screen.omni_pipes.amount.box")));
+            amountBox.setMaxLength(9);
+            amountBox.setFilter(text -> text.chars().allMatch(Character::isDigit));
+            amountBox.setValue(String.valueOf(menu.amount(amountSlot)));
+            setFocused(amountBox);
+            return true;
+        }
+        return super.mouseClicked(event, doubleClick);
+    }
+
+    @Override
+    public boolean keyPressed(KeyEvent event) {
+        if (amountBox == null) return super.keyPressed(event);
+        if (event.key() == GLFW.GLFW_KEY_ENTER || event.key() == GLFW.GLFW_KEY_KP_ENTER) closeAmountBox(true);
+        else if (event.key() == GLFW.GLFW_KEY_ESCAPE) closeAmountBox(false);
+        else amountBox.keyPressed(event);
+        return true;
+    }
+
+    private void closeAmountBox(boolean save) {
+        if (save && !amountBox.getValue().isEmpty())
+            ClientPacketDistributor.sendToServer(new SetFilterAmountPayload(menu.containerId, amountSlot, Integer.parseInt(amountBox.getValue())));
+        removeWidget(amountBox);
+        amountBox = null;
     }
 
     // Clicks on the upgrade strip and the buttons left of the panel count as inside, otherwise vanilla would drop the carried item.

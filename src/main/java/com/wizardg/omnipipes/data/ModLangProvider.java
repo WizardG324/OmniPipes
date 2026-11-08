@@ -111,7 +111,7 @@ public class ModLangProvider extends LanguageProvider {
         add("screen.omni_pipes.components.match.tooltip", "Items must match exactly, including enchantments, names and other data");
         add("screen.omni_pipes.components.ignore", "Ignore Components");
         add("screen.omni_pipes.components.ignore.tooltip", "Only the item type has to match");
-        add("screen.omni_pipes.filter_slot.tooltip", "Click with an item to add it to the filter (a bucket or tank filters its fluid too), right click to remove");
+        add("screen.omni_pipes.filter_slot.tooltip", "Click with an item to filter it, right click to filter contents like fluids or energy");
         add("screen.omni_pipes.amount.none", "No amount set, moves any number");
         add("screen.omni_pipes.amount.extract", "Moves up to %s at a time");
         add("screen.omni_pipes.amount.insert", "Fills the target up to %s");
@@ -160,8 +160,13 @@ public class ModLangProvider extends LanguageProvider {
         add("tooltip.omni_pipes.upgrade.energy_upgrade", "Lets a pipe connection extract energy");
         add("tooltip.omni_pipes.upgrade.rift_upgrade", "Lets a pipe connection extract rift energy from BBL Rifts");
         add("tooltip.omni_pipes.install", "Shift right-click a pipe connection to install");
-        add("screen.omni_pipes.amount.fluid", "Also filters the fluid inside, its amount counts in buckets");
-        add("screen.omni_pipes.amount.hint", "Scroll to change the amount (shift: by 10), right click to remove");
+        add("screen.omni_pipes.amount.fluid", "Filters this fluid");
+        add("screen.omni_pipes.amount.energy", "Filters energy");
+        add("screen.omni_pipes.energy", "Energy");
+        add("screen.omni_pipes.unit.fluid", "%s mB");
+        add("screen.omni_pipes.unit.energy", "%s FE");
+        add("screen.omni_pipes.amount.box", "Amount");
+        add("screen.omni_pipes.amount.hint", "Scroll to change the amount (shift: by 10), middle click to type it, right click to remove");
     }
 
     // light_blue -> Light Blue

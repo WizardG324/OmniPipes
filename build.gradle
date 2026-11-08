@@ -95,6 +95,10 @@ dependencies {
     compileOnly("curse.maven:powah-rearchitected-633483:${powah_file_id}")
     //Better Advanced Tooltips
     implementation("curse.maven:better-advanced-tooltips-1637623:${better_advanced_tooltips_file_id}")
+    //LTX Industries, runtime only for energy machines to test with
+    runtimeOnly("curse.maven:ltx-industries-1075456:${ltx_industries_file_id}")
+    runtimeOnly("curse.maven:limacore-1075362:${limacore_file_id}")
+    runtimeOnly("curse.maven:guideme-1173950:${guideme_file_id}") // LTX Industries crashes the client without it
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {

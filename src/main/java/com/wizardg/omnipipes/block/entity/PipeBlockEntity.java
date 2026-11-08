@@ -36,6 +36,7 @@ import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.transfer.ResourceHandler;
 import net.neoforged.neoforge.transfer.transaction.Transaction;
 import net.neoforged.neoforge.transfer.resource.RegisteredResource;
+import net.neoforged.neoforge.transfer.energy.EnergyHandler;
 import net.neoforged.neoforge.transfer.energy.EnergyHandlerUtil;
 import org.jspecify.annotations.Nullable;
 
@@ -475,7 +476,7 @@ public class PipeBlockEntity extends BlockEntity {
                 moved += push(be, dir, Capabilities.Fluid.BLOCK, dests, rates.fluid,
                         (a, b, n, t) -> moveFiltered(a, b, extractFilter, t.filter, t.pipe.refused(t.dir), n, batches));
             if (be.movesType(dir, ModTags.Items.ENERGY_UPGRADE_COMPAT))
-                moved += push(be, dir, Capabilities.Energy.BLOCK, dests, rates.energy, (a, b, n, t) -> EnergyHandlerUtil.move(a, b, n, null));
+                moved += push(be, dir, Capabilities.Energy.BLOCK, dests, rates.energy, (a, b, n, t) -> moveEnergy(a, b, extractFilter, t.filter, n, batches));
             if (OmniPipes.RIFTS_LOADED && be.movesType(dir, ModTags.Items.RIFT_UPGRADE_COMPAT))
                 moved += RiftEnergy.push(be, dir, dests, rates.rift);
             be.lastExtract[i] = time;
@@ -635,6 +636,20 @@ public class PipeBlockEntity extends BlockEntity {
             transaction.commit();
             return inserted;
         }
+    }
+
+    // Energy has no types, so a filter's energy entry (if any) gives the batch and stock limits.
+    private static int moveEnergy(EnergyHandler from, @Nullable EnergyHandler to, PipeFilter extract, PipeFilter insert, int amount,
+                                  Map<PipeFilter.Entry, Integer> batches) {
+        if (to == null || !extract.allowsEnergy() || !insert.allowsEnergy()) return 0;
+        PipeFilter.Entry batchEntry = extract.matchEnergy();
+        if (batchEntry != null && batchEntry.amount() > 0) amount = Math.min(amount, batchEntry.amount() - batches.getOrDefault(batchEntry, 0));
+        else batchEntry = null;
+        if (insert.energyAmount() > 0) amount = Math.min(amount, insert.energyAmount() - to.getAmountAsInt());
+        if (amount <= 0) return 0;
+        int done = EnergyHandlerUtil.move(from, to, amount, null);
+        if (batchEntry != null) batches.merge(batchEntry, done, Integer::sum);
+        return done;
     }
 
     // How much the handler holds of everything that matches this filter entry.

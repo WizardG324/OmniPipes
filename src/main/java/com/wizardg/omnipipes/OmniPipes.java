@@ -11,6 +11,7 @@ import com.wizardg.omnipipes.gametest.ModGameTests;
 import com.wizardg.omnipipes.item.ModCreativeTab;
 import com.wizardg.omnipipes.item.ModDataComponents;
 import com.wizardg.omnipipes.item.ModItems;
+import com.wizardg.omnipipes.networking.SetFilterAmountPayload;
 import com.wizardg.omnipipes.networking.SetFilterPayload;
 import com.wizardg.omnipipes.networking.SetTagFilterPayload;
 import com.wizardg.omnipipes.screen.ModMenuTypes;
@@ -47,6 +48,7 @@ public class OmniPipes {
         ModGameTests.TEST_FUNCTIONS.register(modEventBus);
         modEventBus.addListener(ModGameTests::registerTests);
         modEventBus.addListener(SetFilterPayload::register);
+        modEventBus.addListener(SetFilterAmountPayload::register);
         modEventBus.addListener(SetTagFilterPayload::register);
 
         modContainer.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);

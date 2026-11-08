@@ -19,6 +19,10 @@ public class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<List<Identifier>>> TAGS = COMPONENTS.registerComponentType("tags",
             builder -> builder.persistent(Identifier.CODEC.listOf()).networkSynchronized(Identifier.STREAM_CODEC.apply(ByteBufCodecs.list())));
 
+    // On a filter entry: filter the fluid or energy inside instead of the item (right click with a bucket, tank or battery).
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Boolean>> FILTER_CONTENTS = COMPONENTS.registerComponentType("filter_contents",
+            builder -> builder.persistent(Codec.BOOL).networkSynchronized(ByteBufCodecs.BOOL));
+
     // Pipe Configurator: true while in copy/paste mode (configuration is the default), and the settings it copied.
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<Boolean>> COPY_MODE = COMPONENTS.registerComponentType("copy_mode",
             builder -> builder.persistent(Codec.BOOL).networkSynchronized(ByteBufCodecs.BOOL));
