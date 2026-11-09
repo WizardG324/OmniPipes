@@ -25,6 +25,7 @@ public class ModLangProvider extends LanguageProvider {
         //Upgrades
         for (int t = 0; t < ModItems.TIER_UPGRADES.size(); t++) add(ModItems.TIER_UPGRADES.get(t).get(), "Tier " + (t + 1) + " Upgrade");
         add(ModItems.CREATIVE_UPGRADE.get(), "Creative Upgrade");
+        add(ModItems.ITEM_UPGRADE.get(), "Item Upgrade");
         add(ModItems.FLUID_UPGRADE.get(), "Fluid Upgrade");
         add(ModItems.ENERGY_UPGRADE.get(), "Energy Upgrade");
         add(ModItems.RIFT_UPGRADE.get(), "Rift Upgrade");
@@ -156,6 +157,7 @@ public class ModLangProvider extends LanguageProvider {
         add("tooltip.omni_pipes.amounts", "Per transfer: %s items, %sB, %s FE");
         add("tooltip.omni_pipes.rift_amount", "Rift energy per transfer: %s RE");
         add("tooltip.omni_pipes.upgrade.creative_upgrade", "Every tick, unlimited amounts, moves every available type");
+        add("tooltip.omni_pipes.upgrade.item_upgrade", "Lets a pipe connection extract items, only needed when the server requires it");
         add("tooltip.omni_pipes.upgrade.fluid_upgrade", "Lets a pipe connection extract fluids");
         add("tooltip.omni_pipes.upgrade.energy_upgrade", "Lets a pipe connection extract energy");
         add("tooltip.omni_pipes.upgrade.rift_upgrade", "Lets a pipe connection extract rift energy from BBL Rifts");

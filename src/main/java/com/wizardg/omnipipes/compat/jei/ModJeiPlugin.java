@@ -26,11 +26,10 @@ public class ModJeiPlugin implements IModPlugin {
         return Identifier.fromNamespaceAndPath(OmniPipes.MODID, "jei_plugin");
     }
 
-    // The Rift Upgrade does nothing without BBL Rifts.
     @Override
     public void onRuntimeAvailable(IJeiRuntime runtime) {
-        if (!OmniPipes.RIFTS_LOADED)
-            runtime.getIngredientManager().removeIngredientsAtRuntime(VanillaTypes.ITEM_STACK, List.of(new ItemStack(ModItems.RIFT_UPGRADE.get())));
+        var hidden = ModItems.hidden().stream().map(item -> new ItemStack(item.get())).toList();
+        if (!hidden.isEmpty()) runtime.getIngredientManager().removeIngredientsAtRuntime(VanillaTypes.ITEM_STACK, hidden);
     }
 
     @Override

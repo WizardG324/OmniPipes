@@ -1,6 +1,5 @@
 package com.wizardg.omnipipes.compat.rei;
 
-import com.wizardg.omnipipes.OmniPipes;
 import com.wizardg.omnipipes.item.ModItems;
 import com.wizardg.omnipipes.screen.PipeScreen;
 import dev.architectury.fluid.FluidStack;
@@ -21,16 +20,14 @@ import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
-import java.util.List;
 import java.util.stream.Stream;
 
 // Keeps REI clear of the pipe screen's side parts, and lets items and fluids be dragged onto its filter slots.
 @REIPluginClient
 public class ModReiPlugin implements REIClientPlugin {
-    // The Rift Upgrade does nothing without BBL Rifts.
     @Override
     public void registerBasicEntryFiltering(BasicFilteringRule<?> rule) {
-        if (!OmniPipes.RIFTS_LOADED) rule.hide(() -> List.<EntryStack<?>>of(EntryStacks.of(ModItems.RIFT_UPGRADE.get())));
+        rule.hide(() -> ModItems.hidden().stream().<EntryStack<?>>map(item -> EntryStacks.of(item.get())).toList());
     }
 
     @Override

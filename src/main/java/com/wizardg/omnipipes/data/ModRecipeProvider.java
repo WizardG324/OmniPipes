@@ -73,6 +73,16 @@ public class ModRecipeProvider extends RecipeProvider {
                 .save(output);
 
         //Type upgrades, the unlocking item ringed by iron
+        shaped(RecipeCategory.MISC, ModItems.ITEM_UPGRADE.get())
+                .pattern("III")
+                .pattern("ICI")
+                .pattern("III")
+                .define('I', Tags.Items.INGOTS_IRON)
+                .define('C', Tags.Items.CHESTS_WOODEN)
+                .group(OmniPipes.MODID + "_upgrade")
+                .unlockedBy("has_iron_ingot", has(Items.IRON_INGOT))
+                .save(output);
+
         shaped(RecipeCategory.MISC, ModItems.FLUID_UPGRADE.get())
                 .pattern("III")
                 .pattern("IBI")

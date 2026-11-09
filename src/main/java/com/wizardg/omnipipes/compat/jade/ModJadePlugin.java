@@ -54,7 +54,7 @@ public class ModJadePlugin implements IWailaPlugin {
             data.putInt("side", dir.ordinal());
             data.putInt("speed", be.getSpeed(dir));
             data.putBoolean("creative", be.isCreative(dir));
-            data.putInt("items", rates.items());
+            data.putInt("items", be.movesItems(dir) ? rates.items() : -1);
             data.putInt("fluid", be.movesType(dir, ModTags.Items.FLUID_UPGRADE_COMPAT) ? rates.fluid() : -1);
             data.putInt("energy", be.movesType(dir, ModTags.Items.ENERGY_UPGRADE_COMPAT) ? rates.energy() : -1);
             data.putInt("rift", OmniPipes.RIFTS_LOADED && be.movesType(dir, ModTags.Items.RIFT_UPGRADE_COMPAT) ? rates.rift() : -1);
@@ -96,11 +96,16 @@ public class ModJadePlugin implements IWailaPlugin {
                 tooltip.add(Component.translatable("jade.omni_pipes.stats", speed, Component.translatable("jade.omni_pipes.unlimited")));
                 return;
             }
-            List<Component> types = new ArrayList<>(List.of(Component.translatable("jade.omni_pipes.type.items")));
-            List<Component> amounts = new ArrayList<>(List.of(Component.literal(String.valueOf(data.getIntOr("items", 0)))));
+            List<Component> types = new ArrayList<>();
+            List<Component> amounts = new ArrayList<>();
+            int items = data.getIntOr("items", -1);
             int fluid = data.getIntOr("fluid", -1);
             int energy = data.getIntOr("energy", -1);
             int rift = data.getIntOr("rift", -1);
+            if (items >= 0) {
+                types.add(Component.translatable("jade.omni_pipes.type.items"));
+                amounts.add(Component.literal(String.valueOf(items)));
+            }
             if (fluid >= 0) {
                 types.add(Component.translatable("jade.omni_pipes.type.fluids"));
                 amounts.add(Component.translatable("jade.omni_pipes.fluid", ModFormat.decimal(fluid / 1000.0)));
@@ -113,6 +118,7 @@ public class ModJadePlugin implements IWailaPlugin {
                 types.add(Component.translatable("jade.omni_pipes.type.rift"));
                 amounts.add(Component.translatable("jade.omni_pipes.rift", ModFormat.compact(rift)));
             }
+            if (types.isEmpty()) return; // requireItemUpgrade on and no type upgrades
             tooltip.add(Component.translatable("jade.omni_pipes.transferring", join(types)));
             tooltip.add(Component.translatable("jade.omni_pipes.stats", speed, join(amounts)));
         }

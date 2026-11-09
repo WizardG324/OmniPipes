@@ -11,6 +11,7 @@ public class ServerConfig {
 
     public static final ModConfigSpec.ConfigValue<Boolean> enablePipeOptimizations;
     public static final ModConfigSpec.ConfigValue<Integer> maxSleepTicks;
+    public static final ModConfigSpec.ConfigValue<Boolean> requireItemUpgrade;
     public static final Rates base;
     public static final List<Rates> upgradeTiers = new ArrayList<>(); // index 0 = tier 1
     public static final ModConfigSpec.ConfigValue<Integer> riftBase;
@@ -32,6 +33,10 @@ public class ServerConfig {
                 .comment("Longest a side sleeps. Each failed extract doubles its wait, a success puts it back to normal speed,",
                         "and a change next to the pipe wakes it.")
                 .defineInRange("maxSleepTicks", 100, 1, 1200);
+
+        requireItemUpgrade = BUILDER
+                .comment("Pipes only extract items from sides with an Item Upgrade, just like how fluids and energy need theirs.")
+                .define("requireItemUpgrade", false);
 
         BUILDER.pop();
 

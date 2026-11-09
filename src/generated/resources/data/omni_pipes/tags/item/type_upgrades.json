@@ -1,5 +1,6 @@
 {
   "values": [
+    "#omni_pipes:item_upgrade_compat",
     "#omni_pipes:fluid_upgrade_compat",
     "#omni_pipes:energy_upgrade_compat",
     "#omni_pipes:rift_upgrade_compat"

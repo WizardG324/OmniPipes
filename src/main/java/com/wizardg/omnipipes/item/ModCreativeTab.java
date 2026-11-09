@@ -17,7 +17,8 @@ public class ModCreativeTab {
             .withTabsBefore(CreativeModeTabs.COMBAT)
             .icon(() -> ModBlocks.PIPE.asItem().getDefaultInstance())
             .title(Component.translatable("itemGroup.omni_pipes"))
-            .displayItems((params, output) -> ModItems.ITEMS.getEntries().stream()
-                    .filter(item -> item != ModItems.RIFT_UPGRADE || OmniPipes.RIFTS_LOADED) // only useful with BBL Rifts
-                    .forEach(item -> output.accept(item.get()))).build());
+            .displayItems((params, output) -> {
+                var hidden = ModItems.hidden();
+                ModItems.ITEMS.getEntries().stream().filter(item -> !hidden.contains(item)).forEach(item -> output.accept(item.get()));
+            }).build());
 }

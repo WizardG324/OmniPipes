@@ -408,6 +408,10 @@ public class PipeBlockEntity extends BlockEntity {
         return false;
     }
 
+    public boolean movesItems(Direction dir) {
+        return !ServerConfig.requireItemUpgrade.get() || movesType(dir, ModTags.Items.ITEM_UPGRADE_COMPAT);
+    }
+
     private boolean isActive(Direction dir) {
         return getRedstone(dir).allows(level.getBestNeighborSignal(worldPosition));
     }
@@ -470,8 +474,10 @@ public class PipeBlockEntity extends BlockEntity {
             Rates rates = be.rates(dir);
             PipeFilter extractFilter = be.getFilter(dir, false);
             Map<PipeFilter.Entry, Integer> batches = new HashMap<>(); // per transfer, shared by every target
-            int moved = push(be, dir, Capabilities.Item.BLOCK, dests, rates.items,
-                    (a, b, n, t) -> moveFiltered(a, b, extractFilter, t.filter, t.pipe.refused(t.dir), n, batches));
+            int moved = 0;
+            if (be.movesItems(dir))
+                moved += push(be, dir, Capabilities.Item.BLOCK, dests, rates.items,
+                        (a, b, n, t) -> moveFiltered(a, b, extractFilter, t.filter, t.pipe.refused(t.dir), n, batches));
             if (be.movesType(dir, ModTags.Items.FLUID_UPGRADE_COMPAT))
                 moved += push(be, dir, Capabilities.Fluid.BLOCK, dests, rates.fluid,
                         (a, b, n, t) -> moveFiltered(a, b, extractFilter, t.filter, t.pipe.refused(t.dir), n, batches));
@@ -500,7 +506,7 @@ public class PipeBlockEntity extends BlockEntity {
 
     // Whether the source holds anything movable, so a failure was down to full targets.
     private boolean hasWork(Direction dir, PipeFilter filter) {
-        var items = neighbor(Capabilities.Item.BLOCK, dir);
+        var items = movesItems(dir) ? neighbor(Capabilities.Item.BLOCK, dir) : null;
         if (items != null && hasAny(items, filter)) return true;
         if (movesType(dir, ModTags.Items.FLUID_UPGRADE_COMPAT)) {
             var fluids = neighbor(Capabilities.Fluid.BLOCK, dir);

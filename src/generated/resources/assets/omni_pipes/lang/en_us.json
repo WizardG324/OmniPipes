@@ -27,6 +27,7 @@
   "item.omni_pipes.creative_upgrade": "Creative Upgrade",
   "item.omni_pipes.energy_upgrade": "Energy Upgrade",
   "item.omni_pipes.fluid_upgrade": "Fluid Upgrade",
+  "item.omni_pipes.item_upgrade": "Item Upgrade",
   "item.omni_pipes.pipe_configurator": "Pipe Configurator",
   "item.omni_pipes.rift_upgrade": "Rift Upgrade",
   "item.omni_pipes.tag_filter": "Tag Filter",
@@ -160,5 +161,6 @@
   "tooltip.omni_pipes.upgrade.creative_upgrade": "Every tick, unlimited amounts, moves every available type",
   "tooltip.omni_pipes.upgrade.energy_upgrade": "Lets a pipe connection extract energy",
   "tooltip.omni_pipes.upgrade.fluid_upgrade": "Lets a pipe connection extract fluids",
+  "tooltip.omni_pipes.upgrade.item_upgrade": "Lets a pipe connection extract items, only needed when the server requires it",
   "tooltip.omni_pipes.upgrade.rift_upgrade": "Lets a pipe connection extract rift energy from BBL Rifts"
 }
